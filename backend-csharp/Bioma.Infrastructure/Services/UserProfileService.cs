@@ -105,8 +105,6 @@ public class UserProfileService : IUserProfileService
         _db.Players.Add(newPlayer);
         await _db.SaveChangesAsync(ct);
 
-        await WriteCloudSnapshotAsync(newPlayer.Id, ct);
-
         var profileDto = await GetProfileWithInventoryAsync(newPlayer.Id, ct);
         var token = GenerateAuthToken(newPlayer.Id, newPlayer.Username);
 
@@ -142,10 +140,9 @@ public class UserProfileService : IUserProfileService
             player.AvatarUrl = BuildDefaultAvatarSvg(player.Username);
         }
 
-        // US-04 : Synchronisation cloud automatique à la connexion
+        // US-04 : Synchronisation cloud automatique à la connexion dans la BDD
         player.LastCloudSyncAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
-        await WriteCloudSnapshotAsync(player.Id, ct);
 
         var profileDto = await GetProfileWithInventoryAsync(player.Id, ct);
         var token = GenerateAuthToken(player.Id, player.Username);
@@ -323,23 +320,34 @@ public class UserProfileService : IUserProfileService
         }
         else
         {
-            string cloudDir = GetCloudBackupDirectory();
-            string cleanToken = trimmed.ToUpperInvariant();
-            if (!cleanToken.StartsWith("CLOUD-", StringComparison.Ordinal))
-            {
-                cleanToken = $"CLOUD-{cleanToken}";
-            }
+            // Recherche directe dans la base relationnelle (sans dépendance aux fichiers JSON locaux)
+            var cleanId = trimmed.ToLowerInvariant();
+            var existingDbPlayer = await _db.Players
+                .Include(p => p.InventoryCards)
+                    .ThenInclude(pc => pc.SpeciesCard)
+                .FirstOrDefaultAsync(p => p.Username.ToLower() == cleanId
+                    || p.Email.ToLower() == cleanId
+                    || p.Id.ToString() == cleanId, ct);
 
-            string tokenFilePath = Path.Combine(cloudDir, $"{cleanToken}.json");
-            if (File.Exists(tokenFilePath))
+            if (existingDbPlayer is not null)
             {
-                jsonContent = await File.ReadAllTextAsync(tokenFilePath, ct);
+                existingDbPlayer.LastCloudSyncAt = DateTimeOffset.UtcNow;
+                await _db.SaveChangesAsync(ct);
+
+                var profileDto = await GetProfileWithInventoryAsync(existingDbPlayer.Id, ct);
+                var token = GenerateAuthToken(existingDbPlayer.Id, existingDbPlayer.Username);
+                return new AuthResponseDto(
+                    true,
+                    $"Progression Cloud de « {existingDbPlayer.Username} » restaurée avec succès depuis la base de données relationnelle.",
+                    token,
+                    profileDto
+                );
             }
         }
 
         if (string.IsNullOrWhiteSpace(jsonContent))
         {
-            return new AuthResponseDto(false, $"Aucune sauvegarde Cloud trouvée pour le code « {trimmed} ».", null, null);
+            return new AuthResponseDto(false, $"Aucune sauvegarde Cloud trouvée pour l'identifiant « {trimmed} ».", null, null);
         }
 
         try
@@ -512,31 +520,7 @@ public class UserProfileService : IUserProfileService
         };
 
         string json = JsonSerializer.Serialize(snapshot, JsonOptions);
-        try
-        {
-            string dir = GetCloudBackupDirectory();
-            await File.WriteAllTextAsync(Path.Combine(dir, $"{cloudToken}.json"), json, ct);
-            await File.WriteAllTextAsync(Path.Combine(dir, $"player_{player.Id}.json"), json, ct);
-        }
-        catch
-        {
-            // Ignore file I/O errors in restricted environments
-        }
-
         return (cloudToken, json);
-    }
-
-    private static string GetCloudBackupDirectory()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Bioma.sln")))
-        {
-            dir = dir.Parent;
-        }
-        var root = dir?.FullName ?? AppContext.BaseDirectory;
-        var cloudDir = Path.Combine(root, "data", "cloud_backups");
-        Directory.CreateDirectory(cloudDir);
-        return cloudDir;
     }
 
     public static string HashPassword(string password)

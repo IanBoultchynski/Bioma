@@ -1,11 +1,14 @@
 using Bioma.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Npgsql;
 
 namespace Bioma.Infrastructure.Data;
 
 /// <summary>
-/// Configuration partagée de la base de données Bioma (PostgreSQL sous Docker ou SQLite persistant en local).
+/// Configuration partagée et résiliente de la base de données Bioma.
+/// Tente de se connecter au PostgreSQL sous Docker ; si Docker n'est pas allumé, bascule
+/// automatiquement et sans crash vers une base SQLite locale.
 /// </summary>
 public static class BiomaDbConfiguration
 {
@@ -23,16 +26,40 @@ public static class BiomaDbConfiguration
         return Path.Combine(dataDir, "bioma.db");
     }
 
+    /// <summary>
+    /// Sonde la disponibilité de PostgreSQL avec un délai court (2 secondes max).
+    /// </summary>
+    public static bool CanConnectToPostgres(string connectionString, int timeoutSeconds = 2)
+    {
+        try
+        {
+            var builder = new NpgsqlConnectionStringBuilder(connectionString)
+            {
+                Timeout = timeoutSeconds,
+                CommandTimeout = timeoutSeconds
+            };
+            using var conn = new NpgsqlConnection(builder.ConnectionString);
+            conn.Open();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public static void Configure(DbContextOptionsBuilder options, IConfiguration configuration, string contentRootPath)
     {
         var postgresConn = configuration.GetConnectionString("Postgres");
-        if (!string.IsNullOrWhiteSpace(postgresConn))
+        if (!string.IsNullOrWhiteSpace(postgresConn) && CanConnectToPostgres(postgresConn, timeoutSeconds: 2))
         {
+            Console.WriteLine("[Bioma] Connexion PostgreSQL Docker établie avec succès.");
             options.UseNpgsql(postgresConn);
         }
         else
         {
             var sqliteFile = ResolveSqlitePath(contentRootPath);
+            Console.WriteLine($"[Bioma] PostgreSQL non joignable (Docker éteint). Bascule transparente vers SQLite local : {sqliteFile}");
             options.UseSqlite($"Data Source={sqliteFile}");
         }
     }
@@ -40,7 +67,7 @@ public static class BiomaDbConfiguration
 
 /// <summary>
 /// Contexte Entity Framework Core complet de la base de données Bioma.
-/// Gère les utilisateurs, leurs cartes et leur progression, ainsi que l'ensemble des modules des 13 épiques.
+/// Gère les entités modulaires, les index composites indispensables et les règles d'intégrité référentielle (Cascade / Restrict).
 /// </summary>
 public class BiomaDbContext : DbContext
 {
@@ -48,49 +75,38 @@ public class BiomaDbContext : DbContext
     {
     }
 
-    // Catalogue d'espèces et observations (Back-Office)
+    // Core
     public DbSet<SpeciesCard> Cards => Set<SpeciesCard>();
-
-    // Utilisateurs, inventaire de cartes et progression
     public DbSet<PlayerProfile> Players => Set<PlayerProfile>();
     public DbSet<PlayerCard> PlayerCards => Set<PlayerCard>();
 
-    // Épique 2 : Capture IRL
+    // Innovation
     public DbSet<CaptureAttempt> CaptureAttempts => Set<CaptureAttempt>();
+    public DbSet<LaboratoryFusion> LaboratoryFusions => Set<LaboratoryFusion>();
+    public DbSet<ShowcasePedestal> ShowcasePedestals => Set<ShowcasePedestal>();
 
-    // Épique 3 : Expéditions Data & Globe 3D
+    // Gameplay
     public DbSet<BiodiversityHotspot> Hotspots => Set<BiodiversityHotspot>();
     public DbSet<ExpeditionMission> Expeditions => Set<ExpeditionMission>();
-
-    // Épique 4 : Quiz Chronométré
     public DbSet<BiologyQuizQuestion> QuizQuestions => Set<BiologyQuizQuestion>();
     public DbSet<QuizAttemptRecord> QuizAttempts => Set<QuizAttemptRecord>();
-
-    // Épique 5 : Tirage (Gacha)
-    public DbSet<GachaPullRecord> GachaPulls => Set<GachaPullRecord>();
-
-    // Épique 7 : Le Laboratoire
-    public DbSet<LaboratoryFusion> LaboratoryFusions => Set<LaboratoryFusion>();
-
-    // Épique 8 : Marché aux Enchères
-    public DbSet<AuctionListing> AuctionListings => Set<AuctionListing>();
-    public DbSet<AuctionBid> AuctionBids => Set<AuctionBid>();
-
-    // Épique 9 : Social & Échanges
-    public DbSet<Friendship> Friendships => Set<Friendship>();
-    public DbSet<TradeOffer> TradeOffers => Set<TradeOffer>();
-
-    // Épique 10 : Batailles 1v1
     public DbSet<BattleMatch> BattleMatches => Set<BattleMatch>();
 
-    // Épique 11 : Vitrine 3D
-    public DbSet<ShowcasePedestal> ShowcasePedestals => Set<ShowcasePedestal>();
+    // Economy & Social
+    public DbSet<GachaPullRecord> GachaPulls => Set<GachaPullRecord>();
+    public DbSet<AuctionListing> AuctionListings => Set<AuctionListing>();
+    public DbSet<AuctionBid> AuctionBids => Set<AuctionBid>();
+    public DbSet<Friendship> Friendships => Set<Friendship>();
+    public DbSet<TradeOffer> TradeOffers => Set<TradeOffer>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // 1. Catalogue d'espèces (SpeciesCard)
+        // ====================================================================
+        // 1. CORE : SpeciesCard, PlayerProfile, PlayerCard
+        // ====================================================================
+
         modelBuilder.Entity<SpeciesCard>(entity =>
         {
             entity.ToTable("SpeciesCards");
@@ -98,21 +114,24 @@ public class BiomaDbContext : DbContext
             entity.Property(c => c.ScientificName).HasMaxLength(128).IsRequired();
             entity.Property(c => c.CommonName).HasMaxLength(128);
             entity.Property(c => c.SourceApi).HasMaxLength(32);
+
             entity.HasIndex(c => c.ScientificName);
+            entity.HasIndex(c => c.CommonName);
+            entity.HasIndex(c => new { c.Biome, c.Rarity });
         });
 
-        // 2. Utilisateurs (PlayerProfile)
         modelBuilder.Entity<PlayerProfile>(entity =>
         {
             entity.ToTable("Players");
             entity.HasKey(p => p.Id);
             entity.Property(p => p.Username).HasMaxLength(64).IsRequired();
             entity.Property(p => p.Email).HasMaxLength(128).IsRequired();
+
             entity.HasIndex(p => p.Username).IsUnique();
             entity.HasIndex(p => p.Email).IsUnique();
+            entity.HasIndex(p => p.EloRating);
         });
 
-        // 3. Inventaire de cartes et progression d'un joueur (PlayerCard)
         modelBuilder.Entity<PlayerCard>(entity =>
         {
             entity.ToTable("PlayerCards");
@@ -131,31 +150,27 @@ public class BiomaDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasIndex(pc => new { pc.PlayerId, pc.IsInActiveDeck });
+            entity.HasIndex(pc => new { pc.PlayerId, pc.SpeciesCardId });
+            entity.HasIndex(pc => new { pc.PlayerId, pc.Level });
         });
 
-        // 4. Captures IRL (CaptureAttempt)
-        modelBuilder.Entity<CaptureAttempt>(entity =>
-        {
-            entity.ToTable("CaptureAttempts");
-            entity.HasKey(ca => ca.Id);
-            entity.HasOne(ca => ca.Player)
-                .WithMany(p => p.Captures)
-                .HasForeignKey(ca => ca.PlayerId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
+        // ====================================================================
+        // 2. GAMEPLAY : BiodiversityHotspot, ExpeditionMission, Quiz, Battle
+        // ====================================================================
 
-        // 5. Hotspots & Expéditions (BiodiversityHotspot, ExpeditionMission)
         modelBuilder.Entity<BiodiversityHotspot>(entity =>
         {
             entity.ToTable("BiodiversityHotspots");
             entity.HasKey(h => h.Id);
             entity.Property(h => h.Name).HasMaxLength(128).IsRequired();
+            entity.HasIndex(h => new { h.Biome, h.ActiveSeason });
         });
 
         modelBuilder.Entity<ExpeditionMission>(entity =>
         {
             entity.ToTable("ExpeditionMissions");
             entity.HasKey(e => e.Id);
+
             entity.HasOne(e => e.Player)
                 .WithMany(p => p.Expeditions)
                 .HasForeignKey(e => e.PlayerId)
@@ -170,9 +185,11 @@ public class BiomaDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.HotspotId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.PlayerId, e.Status });
+            entity.HasIndex(e => new { e.HotspotId, e.Status });
         });
 
-        // 6. Quiz Chronométré (BiologyQuizQuestion, QuizAttemptRecord)
         modelBuilder.Entity<BiologyQuizQuestion>(entity =>
         {
             entity.ToTable("BiologyQuizQuestions");
@@ -184,6 +201,7 @@ public class BiomaDbContext : DbContext
         {
             entity.ToTable("QuizAttempts");
             entity.HasKey(qa => qa.Id);
+
             entity.HasOne(qa => qa.Player)
                 .WithMany(p => p.QuizAttempts)
                 .HasForeignKey(qa => qa.PlayerId)
@@ -193,13 +211,28 @@ public class BiomaDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(qa => qa.QuestionId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(qa => new { qa.PlayerId, qa.AnsweredAt });
+            entity.HasIndex(qa => new { qa.PlayerId, qa.QuestionId });
         });
 
-        // 7. Tirage Gacha (GachaPullRecord)
+        modelBuilder.Entity<BattleMatch>(entity =>
+        {
+            entity.ToTable("BattleMatches");
+            entity.HasKey(bm => bm.Id);
+            entity.HasIndex(bm => new { bm.PlayerAId, bm.PlayedAt });
+            entity.HasIndex(bm => new { bm.PlayerBId, bm.PlayedAt });
+        });
+
+        // ====================================================================
+        // 3. ECONOMY & SOCIAL : Auction, Trade, Gacha, Friendship
+        // ====================================================================
+
         modelBuilder.Entity<GachaPullRecord>(entity =>
         {
             entity.ToTable("GachaPulls");
             entity.HasKey(g => g.Id);
+
             entity.HasOne(g => g.Player)
                 .WithMany(p => p.GachaPulls)
                 .HasForeignKey(g => g.PlayerId)
@@ -209,24 +242,16 @@ public class BiomaDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(g => g.PlayerCardId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(g => new { g.PlayerId, g.PulledAt });
+            entity.HasIndex(g => new { g.PlayerId, g.Rarity });
         });
 
-        // 8. Laboratoire & Fusions (LaboratoryFusion)
-        modelBuilder.Entity<LaboratoryFusion>(entity =>
-        {
-            entity.ToTable("LaboratoryFusions");
-            entity.HasKey(lf => lf.Id);
-            entity.HasOne(lf => lf.Player)
-                .WithMany(p => p.LaboratoryFusions)
-                .HasForeignKey(lf => lf.PlayerId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        // 9. Marché aux Enchères (AuctionListing, AuctionBid)
         modelBuilder.Entity<AuctionListing>(entity =>
         {
             entity.ToTable("AuctionListings");
             entity.HasKey(al => al.Id);
+
             entity.HasOne(al => al.SellerPlayer)
                 .WithMany()
                 .HasForeignKey(al => al.SellerPlayerId)
@@ -236,12 +261,16 @@ public class BiomaDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(al => al.PlayerCardId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(al => new { al.Status, al.EndsAt });
+            entity.HasIndex(al => new { al.SellerPlayerId, al.Status });
         });
 
         modelBuilder.Entity<AuctionBid>(entity =>
         {
             entity.ToTable("AuctionBids");
             entity.HasKey(ab => ab.Id);
+
             entity.HasOne(ab => ab.AuctionListing)
                 .WithMany(al => al.Bids)
                 .HasForeignKey(ab => ab.AuctionListingId)
@@ -251,9 +280,11 @@ public class BiomaDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(ab => ab.BidderPlayerId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(ab => new { ab.AuctionListingId, ab.BidAmount });
+            entity.HasIndex(ab => new { ab.BidderPlayerId, ab.PlacedAt });
         });
 
-        // 10. Social & Échanges (Friendship, TradeOffer)
         modelBuilder.Entity<Friendship>(entity =>
         {
             entity.ToTable("Friendships");
@@ -265,22 +296,46 @@ public class BiomaDbContext : DbContext
         {
             entity.ToTable("TradeOffers");
             entity.HasKey(t => t.Id);
+            entity.HasIndex(t => new { t.SenderPlayerId, t.Status });
+            entity.HasIndex(t => new { t.ReceiverPlayerId, t.Status });
         });
 
-        // 11. Batailles 1v1 (BattleMatch)
-        modelBuilder.Entity<BattleMatch>(entity =>
+        // ====================================================================
+        // 4. INNOVATION : CaptureAttempt, LaboratoryFusion, ShowcasePedestal
+        // ====================================================================
+
+        modelBuilder.Entity<CaptureAttempt>(entity =>
         {
-            entity.ToTable("BattleMatches");
-            entity.HasKey(bm => bm.Id);
-            entity.HasIndex(bm => bm.PlayerAId);
-            entity.HasIndex(bm => bm.PlayerBId);
+            entity.ToTable("CaptureAttempts");
+            entity.HasKey(ca => ca.Id);
+
+            entity.HasOne(ca => ca.Player)
+                .WithMany(p => p.Captures)
+                .HasForeignKey(ca => ca.PlayerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(ca => new { ca.PlayerId, ca.CapturedAt });
+            entity.HasIndex(ca => new { ca.PlayerId, ca.IsRecognized });
         });
 
-        // 12. Vitrine 3D (ShowcasePedestal)
+        modelBuilder.Entity<LaboratoryFusion>(entity =>
+        {
+            entity.ToTable("LaboratoryFusions");
+            entity.HasKey(lf => lf.Id);
+
+            entity.HasOne(lf => lf.Player)
+                .WithMany(p => p.LaboratoryFusions)
+                .HasForeignKey(lf => lf.PlayerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(lf => new { lf.PlayerId, lf.CreatedAt });
+        });
+
         modelBuilder.Entity<ShowcasePedestal>(entity =>
         {
             entity.ToTable("ShowcasePedestals");
             entity.HasKey(sp => sp.Id);
+
             entity.HasOne(sp => sp.OwnerPlayer)
                 .WithMany(p => p.ShowcasePedestals)
                 .HasForeignKey(sp => sp.OwnerPlayerId)
@@ -290,6 +345,8 @@ public class BiomaDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(sp => sp.DisplayedPlayerCardId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(sp => new { sp.OwnerPlayerId, sp.SlotIndex }).IsUnique();
         });
     }
 }

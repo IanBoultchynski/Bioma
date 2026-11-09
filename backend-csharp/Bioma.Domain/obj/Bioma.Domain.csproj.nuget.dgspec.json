@@ -1,23 +1,23 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\brunelo\\Downloads\\Bioma-main\\Bioma\\backend-csharp\\Bioma.Domain\\Bioma.Domain.csproj": {}
+    "C:\\Users\\boultchi\\Bioma\\backend-csharp\\Bioma.Domain\\Bioma.Domain.csproj": {}
   },
   "projects": {
-    "C:\\Users\\brunelo\\Downloads\\Bioma-main\\Bioma\\backend-csharp\\Bioma.Domain\\Bioma.Domain.csproj": {
+    "C:\\Users\\boultchi\\Bioma\\backend-csharp\\Bioma.Domain\\Bioma.Domain.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\brunelo\\Downloads\\Bioma-main\\Bioma\\backend-csharp\\Bioma.Domain\\Bioma.Domain.csproj",
+        "projectUniqueName": "C:\\Users\\boultchi\\Bioma\\backend-csharp\\Bioma.Domain\\Bioma.Domain.csproj",
         "projectName": "Bioma.Domain",
-        "projectPath": "C:\\Users\\brunelo\\Downloads\\Bioma-main\\Bioma\\backend-csharp\\Bioma.Domain\\Bioma.Domain.csproj",
-        "packagesPath": "C:\\Users\\brunelo\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\brunelo\\Downloads\\Bioma-main\\Bioma\\backend-csharp\\Bioma.Domain\\obj\\",
+        "projectPath": "C:\\Users\\boultchi\\Bioma\\backend-csharp\\Bioma.Domain\\Bioma.Domain.csproj",
+        "packagesPath": "C:\\Users\\boultchi\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\boultchi\\Bioma\\backend-csharp\\Bioma.Domain\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\brunelo\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\boultchi\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],

@@ -6,9 +6,12 @@ using Npgsql;
 namespace Bioma.Infrastructure.Data;
 
 /// <summary>
-/// Configuration partagée et résiliente de la base de données Bioma.
-/// Tente de se connecter au PostgreSQL sous Docker ; si Docker n'est pas allumé, bascule
-/// automatiquement et sans crash vers une base SQLite locale.
+/// Configuration résiliente et universelle de la base de données Bioma.
+/// - Supporte nativement Supabase Cloud (PostgreSQL 16) sous format URI (postgresql://...) et Clé-Valeur Npgsql.
+/// - Prise en charge transparente IPv6 directe et passerelle Pooler IPv4 (aws-0-eu-west-3.pooler.supabase.com).
+/// - Si Supabase est joignable, configure Npgsql avec SSL.
+/// - En cas de coupure réseau, d'absence de configuration ou de travail hors-ligne, bascule automatiquement
+///   et de façon 100% transparente vers une base SQLite locale sans aucun crash.
 /// </summary>
 public static class BiomaDbConfiguration
 {
@@ -27,13 +30,119 @@ public static class BiomaDbConfiguration
     }
 
     /// <summary>
-    /// Sonde la disponibilité de PostgreSQL avec un délai court (2 secondes max).
+    /// Convertit et normalise la chaîne de connexion PostgreSQL :
+    /// Prend en charge indifféremment les URI Supabase (postgresql://user:pass@host:5432/db)
+    /// et le format clé-valeur standard Npgsql (Host=...;Port=5432;...).
     /// </summary>
-    public static bool CanConnectToPostgres(string connectionString, int timeoutSeconds = 2)
+    public static string NormalizePostgresConnectionString(string connectionString)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = connectionString.Trim();
+
+        // 1. Support du format URI Supabase / Postgres (postgresql://... ou postgres://...)
+        if (trimmed.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var uri = new Uri(trimmed);
+                var userInfo = uri.UserInfo.Split(':');
+                var username = Uri.UnescapeDataString(userInfo[0]);
+                var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : string.Empty;
+                var host = uri.Host;
+                var port = uri.Port > 0 ? uri.Port : 5432;
+                var database = uri.AbsolutePath.TrimStart('/');
+                if (string.IsNullOrWhiteSpace(database))
+                {
+                    database = "postgres";
+                }
+
+                return $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true;Timeout=5;Command Timeout=30;";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Bioma] Format URI détecté mais non analysable : {ex.Message}");
+                return trimmed;
+            }
+        }
+
+        // 2. Format Clé-Valeur standard Npgsql : ajout automatique de SSL pour Supabase si manquant
+        if (!trimmed.Contains("SSL Mode=", StringComparison.OrdinalIgnoreCase) &&
+            (trimmed.Contains("supabase.co", StringComparison.OrdinalIgnoreCase) || !trimmed.Contains("localhost", StringComparison.OrdinalIgnoreCase)))
+        {
+            if (!trimmed.EndsWith(';')) trimmed += ";";
+            trimmed += "SSL Mode=Require;Trust Server Certificate=true;";
+        }
+
+        return trimmed;
+    }
+
+    /// <summary>
+    /// Tente de router vers le pooler Supavisor IPv4 si le DNS direct IPv6 n'est pas joignable sur le réseau local.
+    /// </summary>
+    public static string? TryResolveSupabasePooler(string connectionString, int timeoutSeconds = 2)
     {
         try
         {
-            var builder = new NpgsqlConnectionStringBuilder(connectionString)
+            var builder = new NpgsqlConnectionStringBuilder(connectionString);
+            var host = builder.Host ?? string.Empty;
+            if (!host.StartsWith("db.", StringComparison.OrdinalIgnoreCase) || !host.EndsWith(".supabase.co", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            var refEnd = host.IndexOf(".supabase.co", StringComparison.OrdinalIgnoreCase);
+            var projectRef = host.Substring(3, refEnd - 3);
+            var originalUser = builder.Username ?? "postgres";
+            var poolerUser = originalUser.Contains('.') ? originalUser : $"{originalUser}.{projectRef}";
+
+            var regions = new[] { "eu-west-3", "eu-central-1", "eu-west-1" };
+            foreach (var region in regions)
+            {
+                foreach (var port in new[] { 5432, 6543 })
+                {
+                    var candidate = $"Host=aws-0-{region}.pooler.supabase.com;Port={port};Database={builder.Database ?? "postgres"};Username={poolerUser};Password={builder.Password};SSL Mode=Require;Trust Server Certificate=true;Timeout={timeoutSeconds};Command Timeout=15;";
+                    try
+                    {
+                        var probeBuilder = new NpgsqlConnectionStringBuilder(candidate)
+                        {
+                            Timeout = timeoutSeconds,
+                            CommandTimeout = timeoutSeconds
+                        };
+                        using var conn = new NpgsqlConnection(probeBuilder.ConnectionString);
+                        conn.Open();
+                        Console.WriteLine($"[Bioma] Passerelle IPv4 Supabase Pooler ({region}:{port}) connectée avec succès !");
+                        return candidate;
+                    }
+                    catch
+                    {
+                        // Ignore et teste la région/port suivant
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Erreur de parsing, fallback standard
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Teste la connectivité réseau et l'authentification avec la base PostgreSQL / Supabase
+    /// en appliquant un timeout strict pour ne jamais bloquer l'application.
+    /// </summary>
+    public static bool CanConnectToPostgres(string connectionString, int timeoutSeconds = 3)
+    {
+        try
+        {
+            var normalized = NormalizePostgresConnectionString(connectionString);
+            var builder = new NpgsqlConnectionStringBuilder(normalized)
             {
                 Timeout = timeoutSeconds,
                 CommandTimeout = timeoutSeconds
@@ -50,18 +159,35 @@ public static class BiomaDbConfiguration
 
     public static void Configure(DbContextOptionsBuilder options, IConfiguration configuration, string contentRootPath)
     {
-        var postgresConn = configuration.GetConnectionString("Postgres");
-        if (!string.IsNullOrWhiteSpace(postgresConn) && CanConnectToPostgres(postgresConn, timeoutSeconds: 2))
+        var rawPostgresConn = configuration.GetConnectionString("Postgres");
+        var normalizedConn = NormalizePostgresConnectionString(rawPostgresConn ?? string.Empty);
+
+        if (!string.IsNullOrWhiteSpace(normalizedConn))
         {
-            Console.WriteLine("[Bioma] Connexion PostgreSQL Docker établie avec succès.");
-            options.UseNpgsql(postgresConn);
+            // 1. Essai de connexion directe (PostgreSQL local Docker ou Supabase direct)
+            if (CanConnectToPostgres(normalizedConn, timeoutSeconds: 3))
+            {
+                var isSupabase = normalizedConn.Contains("supabase.co", StringComparison.OrdinalIgnoreCase);
+                var targetName = isSupabase ? "Supabase Cloud PostgreSQL (Direct)" : "PostgreSQL";
+                Console.WriteLine($"[Bioma] >>> Connexion {targetName} validée et active ! <<<");
+                options.UseNpgsql(normalizedConn);
+                return;
+            }
+
+            // 2. Si le direct échoue sur Supabase (ex: réseau IPv4 restreint), tentative via le Pooler IPv4
+            var poolerConn = TryResolveSupabasePooler(normalizedConn, timeoutSeconds: 2);
+            if (!string.IsNullOrWhiteSpace(poolerConn))
+            {
+                Console.WriteLine("[Bioma] >>> Connexion Supabase Cloud PostgreSQL (Pooler IPv4) validée et active ! <<<");
+                options.UseNpgsql(poolerConn);
+                return;
+            }
         }
-        else
-        {
-            var sqliteFile = ResolveSqlitePath(contentRootPath);
-            Console.WriteLine($"[Bioma] PostgreSQL non joignable (Docker éteint). Bascule transparente vers SQLite local : {sqliteFile}");
-            options.UseSqlite($"Data Source={sqliteFile}");
-        }
+
+        // 3. Fallback transparent vers SQLite local sans aucun plantage
+        var sqliteFile = ResolveSqlitePath(contentRootPath);
+        Console.WriteLine($"[Bioma] Fallback résilient actif : bascule automatique vers SQLite local ({sqliteFile}).");
+        options.UseSqlite($"Data Source={sqliteFile}");
     }
 }
 

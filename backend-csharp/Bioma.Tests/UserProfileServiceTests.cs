@@ -40,6 +40,41 @@ public class UserProfileServiceTests
         // Un doublon de pseudo doit être refusé pour garantir l'identité unique (US-02)
         var duplicate = await service.RegisterAsync(new RegisterUserRequestDto("AigleRoyal99", "autre@bioma.fr", "SecretPass123!"));
         Assert.False(duplicate.Success);
+
+        // Un doublon d'email doit être refusé
+        var duplicateEmail = await service.RegisterAsync(new RegisterUserRequestDto("AutrePseudo", "aigle@bioma.fr", "SecretPass123!"));
+        Assert.False(duplicateEmail.Success);
+    }
+
+    [Fact]
+    public async Task US02_RegisterAsync_RejectsInvalidInputs_AndEnforcesSecurityRules()
+    {
+        var (service, _) = CreateServices(nameof(US02_RegisterAsync_RejectsInvalidInputs_AndEnforcesSecurityRules));
+
+        // Mot de passe trop court (< 8 car)
+        var shortPwd = await service.RegisterAsync(new RegisterUserRequestDto("SecUser1", "sec1@bioma.fr", "Pass1!"));
+        Assert.False(shortPwd.Success);
+        Assert.Contains("8 caractères", shortPwd.Message);
+
+        // Mot de passe sans majuscule
+        var noUpper = await service.RegisterAsync(new RegisterUserRequestDto("SecUser2", "sec2@bioma.fr", "secret123!"));
+        Assert.False(noUpper.Success);
+
+        // Mot de passe sans chiffre ni symbole
+        var noDigit = await service.RegisterAsync(new RegisterUserRequestDto("SecUser3", "sec3@bioma.fr", "SecretPassword"));
+        Assert.False(noDigit.Success);
+
+        // Pseudo avec caractères interdits (espaces ou balises)
+        var badUser = await service.RegisterAsync(new RegisterUserRequestDto("Bad User<script>", "sec4@bioma.fr", "SecretPass123!"));
+        Assert.False(badUser.Success);
+
+        // Pseudo réservé
+        var reserved = await service.RegisterAsync(new RegisterUserRequestDto("admin", "admin@bioma.fr", "SecretPass123!"));
+        Assert.False(reserved.Success);
+
+        // Email invalide
+        var badEmail = await service.RegisterAsync(new RegisterUserRequestDto("ValidUser", "not-an-email", "SecretPass123!"));
+        Assert.False(badEmail.Success);
     }
 
     [Fact]
@@ -49,14 +84,24 @@ public class UserProfileServiceTests
 
         await service.RegisterAsync(new RegisterUserRequestDto("JoueurTest", "joueur@bioma.fr", "MonMotDePasse123!"));
 
+        // Connexion par pseudo
         var validLogin = await service.LoginAsync(new LoginRequestDto("JoueurTest", "MonMotDePasse123!"));
         Assert.True(validLogin.Success);
         Assert.NotNull(validLogin.AuthToken);
         Assert.NotNull(validLogin.Profile);
 
-        var wrongLogin = await service.LoginAsync(new LoginRequestDto("JoueurTest", "MauvaisMotDePasse"));
+        // Connexion par email (insensible à la casse)
+        var emailLogin = await service.LoginAsync(new LoginRequestDto("JOUEUR@BIOMA.FR", "MonMotDePasse123!"));
+        Assert.True(emailLogin.Success);
+
+        // Mauvais mot de passe rejeté
+        var wrongLogin = await service.LoginAsync(new LoginRequestDto("JoueurTest", "MauvaisMotDePasse123!"));
         Assert.False(wrongLogin.Success);
         Assert.Null(wrongLogin.AuthToken);
+
+        // Joueur inexistant rejeté proprement
+        var unknownLogin = await service.LoginAsync(new LoginRequestDto("Inconnu123", "MonMotDePasse123!"));
+        Assert.False(unknownLogin.Success);
     }
 
     [Fact]

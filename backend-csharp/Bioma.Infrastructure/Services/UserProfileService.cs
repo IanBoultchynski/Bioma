@@ -1,6 +1,8 @@
+using System.Net.Mail;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Bioma.Application.DTOs;
 using Bioma.Application.Interfaces;
 using Bioma.Domain.Entities;
@@ -12,8 +14,8 @@ namespace Bioma.Infrastructure.Services;
 
 /// <summary>
 /// Implémentation complète de l'Épique 1 : Utilisateurs &amp; Profil (US-01 à US-06).
-/// - US-01 : Connexion sécurisée (hachage PBKDF2-SHA256 + jeton signé HMAC-SHA256)
-/// - US-02 : Création d'un profil utilisateur avec identité unique (initialisé vide, sans fake data)
+/// - US-01 : Connexion sécurisée (hachage PBKDF2-SHA256 100k itérations + jeton signé HMAC-SHA256 avec expiration)
+/// - US-02 : Création d'un profil utilisateur avec identité unique directement sur Supabase (validation regex, email, mot de passe fort)
 /// - US-03 : Consultation et gestion du deck actif et de l'inventaire complet des cartes
 /// - US-04 : Sauvegarde et restauration Cloud fonctionnelle (snapshots JSON signés + synchronisation temps réel)
 /// - US-05 : Modification de l'avatar de profil (import fichier, URL ou emblèmes botaniques)
@@ -24,6 +26,16 @@ public class UserProfileService : IUserProfileService
     private const string LegacyUnsplashAvatar = "https://images.unsplash.com/photo-1534528741775-53994a69daeb";
     private static readonly byte[] TokenSecret = Encoding.UTF8.GetBytes("Bioma-Cloud-Security-Hmac-Key-2026-Secret!");
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+
+    public const int DefaultPbkdf2Iterations = 100_000;
+    private static readonly Regex UsernameRegex = new(@"^[a-zA-Z0-9_\-\.]{3,30}$", RegexOptions.Compiled);
+    private static readonly HashSet<string> ReservedUsernames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "admin", "administrator", "system", "bioma", "moderator", "root", "support", "api"
+    };
+
+    // Hash factice pour neutraliser les attaques par analyse temporelle (timing attacks) sur les comptes inexistants
+    private static readonly string DummyHash = HashPassword("BiomaSafetyDummyPassword2026!");
 
     private readonly BiomaDbContext _db;
 
@@ -43,32 +55,90 @@ public class UserProfileService : IUserProfileService
         return $"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'><defs><radialGradient id='bg' cx='35%' cy='30%' r='75%'><stop offset='0%' stop-color='%231F3E2F'/><stop offset='100%' stop-color='%230A1711'/></radialGradient><linearGradient id='glow' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%23E5C77A'/><stop offset='100%' stop-color='%2358B77E'/></linearGradient></defs><circle cx='80' cy='80' r='77' fill='url(%23bg)' stroke='url(%23glow)' stroke-width='2.5'/><circle cx='80' cy='80' r='68' fill='none' stroke='%23ffffff' stroke-width='1' stroke-dasharray='4,4' opacity='0.25'/><text x='80' y='93' text-anchor='middle' fill='%23F4F1E8' font-family='sans-serif' font-weight='700' font-size='42' letter-spacing='2'>{escapedInitials}</text><path d='M74 122 C74 116 80 114 86 114 C86 120 80 126 74 122 Z' fill='%2358B77E'/></svg>";
     }
 
+    private static (bool IsValid, string ErrorMessage) ValidatePasswordStrength(string password)
+    {
+        if (string.IsNullOrEmpty(password) || password.Length < 8)
+        {
+            return (false, "Le mot de passe doit comporter au moins 8 caractères pour sécuriser votre compte.");
+        }
+
+        if (password.Length > 128)
+        {
+            return (false, "Le mot de passe ne peut pas dépasser 128 caractères.");
+        }
+
+        bool hasUpper = password.Any(char.IsUpper);
+        bool hasLower = password.Any(char.IsLower);
+        bool hasDigit = password.Any(char.IsDigit);
+        bool hasSpecial = password.Any(ch => !char.IsLetterOrDigit(ch));
+
+        if (!hasUpper || !hasLower || (!hasDigit && !hasSpecial))
+        {
+            return (false, "Le mot de passe doit contenir au moins une lettre majuscule, une lettre minuscule et un chiffre ou symbole.");
+        }
+
+        return (true, string.Empty);
+    }
+
+    private static bool IsValidEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@') || !email.Contains('.'))
+        {
+            return false;
+        }
+
+        try
+        {
+            var addr = new MailAddress(email);
+            return addr.Address.Equals(email, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public async Task<AuthResponseDto> RegisterAsync(RegisterUserRequestDto request, CancellationToken ct = default)
     {
         var username = request.Username?.Trim() ?? string.Empty;
         var email = request.Email?.Trim().ToLowerInvariant() ?? string.Empty;
         var password = request.Password ?? string.Empty;
 
-        if (username.Length < 3)
+        // 1. Validation stricte du pseudonyme
+        if (string.IsNullOrWhiteSpace(username) || username.Length < 3 || username.Length > 30)
         {
-            return new AuthResponseDto(false, "Le pseudonyme doit contenir au moins 3 caractères.", null, null);
+            return new AuthResponseDto(false, "Le pseudonyme doit contenir entre 3 et 30 caractères.", null, null);
         }
 
-        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+        if (!UsernameRegex.IsMatch(username))
         {
-            return new AuthResponseDto(false, "Veuillez saisir une adresse e-mail valide.", null, null);
+            return new AuthResponseDto(false, "Le pseudonyme ne peut contenir que des lettres, chiffres, tirets (-) et points.", null, null);
         }
 
-        if (password.Length < 6)
+        if (ReservedUsernames.Contains(username))
         {
-            return new AuthResponseDto(false, "Le mot de passe doit contenir au moins 6 caractères pour sécuriser votre compte.", null, null);
+            return new AuthResponseDto(false, $"Le pseudonyme « {username} » est réservé par le système.", null, null);
         }
 
+        // 2. Validation de l'adresse e-mail
+        if (string.IsNullOrWhiteSpace(email) || email.Length > 128 || !IsValidEmail(email))
+        {
+            return new AuthResponseDto(false, "Veuillez saisir une adresse e-mail valide (ex: explorateur@bioma.fr).", null, null);
+        }
+
+        // 3. Validation de la robustesse du mot de passe
+        var pwdValidation = ValidatePasswordStrength(password);
+        if (!pwdValidation.IsValid)
+        {
+            return new AuthResponseDto(false, pwdValidation.ErrorMessage, null, null);
+        }
+
+        // 4. Vérification de l'unicité directement en base Supabase (PostgreSQL)
         bool usernameTaken = await _db.Players.AnyAsync(
             p => p.Username.ToLower() == username.ToLower(), ct);
         if (usernameTaken)
         {
-            return new AuthResponseDto(false, $"Le pseudonyme « {username} » est déjà utilisé par un autre joueur.", null, null);
+            return new AuthResponseDto(false, $"Le pseudonyme « {username} » est déjà utilisé par un autre explorateur.", null, null);
         }
 
         bool emailTaken = await _db.Players.AnyAsync(
@@ -83,6 +153,7 @@ public class UserProfileService : IUserProfileService
             ? BuildDefaultAvatarSvg(username)
             : request.AvatarUrl.Trim();
 
+        // 5. Création du profil joueur vierge avec jetons de bienvenue (US-02)
         var newPlayer = new PlayerProfile
         {
             Id = Guid.NewGuid(),
@@ -102,15 +173,22 @@ public class UserProfileService : IUserProfileService
             LastCloudSyncAt = now
         };
 
-        _db.Players.Add(newPlayer);
-        await _db.SaveChangesAsync(ct);
+        try
+        {
+            _db.Players.Add(newPlayer);
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            return new AuthResponseDto(false, "Ce pseudonyme ou cette adresse e-mail est déjà enregistré sur la base de données.", null, null);
+        }
 
         var profileDto = await GetProfileWithInventoryAsync(newPlayer.Id, ct);
         var token = GenerateAuthToken(newPlayer.Id, newPlayer.Username);
 
         return new AuthResponseDto(
             true,
-            $"Profil « {newPlayer.Username} » créé et synchronisé sur le Cloud.",
+            $"Profil « {newPlayer.Username} » créé et enregistré avec succès sur la base de données Supabase !",
             token,
             profileDto
         );
@@ -127,10 +205,17 @@ public class UserProfileService : IUserProfileService
         }
 
         var lowerId = identifier.ToLowerInvariant();
+
+        // Recherche du joueur sur Supabase par son pseudonyme ou son adresse e-mail
         var player = await _db.Players.FirstOrDefaultAsync(
             p => p.Username.ToLower() == lowerId || p.Email.ToLower() == lowerId, ct);
 
-        if (player is null || !VerifyPassword(password, player.PasswordHash))
+        // Exécute toujours une passe PBKDF2 pour éviter l'analyse temporelle (timing attacks)
+        bool passwordMatches = player is not null
+            ? VerifyPassword(password, player.PasswordHash)
+            : VerifyPassword(password, DummyHash);
+
+        if (player is null || !passwordMatches)
         {
             return new AuthResponseDto(false, "Identifiants incorrects. Vérifiez votre pseudonyme/e-mail et votre mot de passe.", null, null);
         }
@@ -140,7 +225,7 @@ public class UserProfileService : IUserProfileService
             player.AvatarUrl = BuildDefaultAvatarSvg(player.Username);
         }
 
-        // US-04 : Synchronisation cloud automatique à la connexion dans la BDD
+        // US-04 : Horodatage de synchronisation Cloud en base Supabase
         player.LastCloudSyncAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
 
@@ -149,7 +234,7 @@ public class UserProfileService : IUserProfileService
 
         return new AuthResponseDto(
             true,
-            $"Connexion sécurisée réussie. Bon retour, {player.Username} !",
+            $"Connexion sécurisée réussie sur Supabase. Bon retour, {player.Username} !",
             token,
             profileDto
         );
@@ -529,16 +614,16 @@ public class UserProfileService : IUserProfileService
         byte[] hash = Rfc2898DeriveBytes.Pbkdf2(
             Encoding.UTF8.GetBytes(password),
             salt,
-            iterations: 10_000,
+            iterations: DefaultPbkdf2Iterations,
             HashAlgorithmName.SHA256,
             outputLength: 32);
 
-        return $"PBKDF2${Convert.ToBase64String(salt)}${Convert.ToBase64String(hash)}";
+        return $"PBKDF2${DefaultPbkdf2Iterations}${Convert.ToBase64String(salt)}${Convert.ToBase64String(hash)}";
     }
 
     public static bool VerifyPassword(string password, string storedHash)
     {
-        if (string.IsNullOrWhiteSpace(storedHash))
+        if (string.IsNullOrWhiteSpace(storedHash) || string.IsNullOrEmpty(password))
         {
             return false;
         }
@@ -546,19 +631,34 @@ public class UserProfileService : IUserProfileService
         if (storedHash.StartsWith("PBKDF2$", StringComparison.Ordinal))
         {
             var parts = storedHash.Split('$');
-            if (parts.Length != 3)
+            int iterations;
+            byte[] salt;
+            byte[] expectedHash;
+
+            if (parts.Length == 4 && int.TryParse(parts[1], out iterations))
+            {
+                // Format moderne sécurisé : PBKDF2$100000$salt$hash
+                salt = Convert.FromBase64String(parts[2]);
+                expectedHash = Convert.FromBase64String(parts[3]);
+            }
+            else if (parts.Length == 3)
+            {
+                // Format historique rétrosupporté : PBKDF2$salt$hash (10 000 itérations)
+                iterations = 10_000;
+                salt = Convert.FromBase64String(parts[1]);
+                expectedHash = Convert.FromBase64String(parts[2]);
+            }
+            else
             {
                 return false;
             }
 
-            byte[] salt = Convert.FromBase64String(parts[1]);
-            byte[] expectedHash = Convert.FromBase64String(parts[2]);
             byte[] actualHash = Rfc2898DeriveBytes.Pbkdf2(
                 Encoding.UTF8.GetBytes(password),
                 salt,
-                iterations: 10_000,
+                iterations: iterations,
                 HashAlgorithmName.SHA256,
-                outputLength: 32);
+                outputLength: expectedHash.Length);
 
             return CryptographicOperations.FixedTimeEquals(actualHash, expectedHash);
         }
@@ -569,9 +669,64 @@ public class UserProfileService : IUserProfileService
     private static string GenerateAuthToken(Guid playerId, string username)
     {
         var issuedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var data = $"{playerId}:{username}:{issuedAt}";
+        var expiresAt = DateTimeOffset.UtcNow.AddDays(7).ToUnixTimeSeconds();
+        var data = $"{playerId}:{username}:{issuedAt}:{expiresAt}";
         var signature = Convert.ToHexString(HMACSHA256.HashData(TokenSecret, Encoding.UTF8.GetBytes(data)));
         return Convert.ToBase64String(Encoding.UTF8.GetBytes($"{data}:{signature}"));
+    }
+
+    public static bool ValidateAuthToken(string token, out Guid playerId, out string username)
+    {
+        playerId = Guid.Empty;
+        username = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(token)) return false;
+
+        try
+        {
+            var raw = Encoding.UTF8.GetString(Convert.FromBase64String(token));
+            var parts = raw.Split(':');
+            if (parts.Length < 4) return false;
+
+            var idStr = parts[0];
+            var userStr = parts[1];
+            var issuedStr = parts[2];
+            var expiresStr = parts.Length >= 5 ? parts[3] : "0";
+            var expectedSig = parts[^1];
+
+            var data = parts.Length >= 5
+                ? $"{idStr}:{userStr}:{issuedStr}:{expiresStr}"
+                : $"{idStr}:{userStr}:{issuedStr}";
+
+            var actualSig = Convert.ToHexString(HMACSHA256.HashData(TokenSecret, Encoding.UTF8.GetBytes(data)));
+
+            if (!CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(actualSig),
+                Encoding.UTF8.GetBytes(expectedSig)))
+            {
+                return false;
+            }
+
+            if (parts.Length >= 5 && long.TryParse(expiresStr, out var expiresAt) && expiresAt > 0)
+            {
+                if (DateTimeOffset.UtcNow.ToUnixTimeSeconds() > expiresAt)
+                {
+                    return false; // Jeton expiré
+                }
+            }
+
+            if (Guid.TryParse(idStr, out playerId))
+            {
+                username = userStr;
+                return true;
+            }
+        }
+        catch
+        {
+            // Format invalide
+        }
+
+        return false;
     }
 
     private static PlayerGlobalStatsDto BuildGlobalStats(PlayerProfile player, ICollection<PlayerCard> cards)

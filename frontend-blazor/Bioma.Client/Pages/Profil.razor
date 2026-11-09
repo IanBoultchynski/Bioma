@@ -109,17 +109,20 @@
                 </div>
 
                 <div>
-                    <label style="display: block; font-size: 0.76rem; font-weight: 600; color: var(--figma-cream); margin-bottom: 0.35rem;">Mot de passe (min. 6 caractères)</label>
+                    <label style="display: block; font-size: 0.76rem; font-weight: 600; color: var(--figma-cream); margin-bottom: 0.35rem;">Mot de passe sécurisé</label>
                     <input type="password"
                            class="bioma-input"
                            @bind="_regPassword"
-                           @onkeydown="@(async e => { if (e.Key == "Enter") await ExecuteRegisterAsync(); })"
-                           placeholder="••••••••" />
+                           @onkeydown="@(async e => { if (e.Key == "Enter" && !_isSubmitting) await ExecuteRegisterAsync(); })"
+                           placeholder="Min. 8 car. (Maj, min, chiffre/symbole)" />
+                    <span style="display: block; font-size: 0.7rem; color: var(--figma-text-muted); margin-top: 0.25rem;">
+                        Min. 8 caractères, avec au moins 1 majuscule, 1 minuscule et 1 chiffre ou symbole.
+                    </span>
                 </div>
 
-                <button class="btn-sand" style="margin-top: 0.35rem;" @onclick="ExecuteRegisterAsync">
-                    <span>Créer mon profil joueur</span>
-                    <span>Valider</span>
+                <button class="btn-sand" style="margin-top: 0.35rem;" @onclick="ExecuteRegisterAsync" disabled="@_isSubmitting">
+                    <span>@(_isSubmitting ? "Création du compte..." : "Créer mon profil joueur")</span>
+                    <span>@(_isSubmitting ? "..." : "Valider")</span>
                 </button>
             </div>
         </section>
@@ -133,7 +136,7 @@
                 </div>
 
                 <p style="font-size: 0.82rem; color: var(--figma-text-soft); margin-bottom: 1.25rem; line-height: 1.55;">
-                    Accédez à votre compte protégé par hachage cryptographique <strong style="color: var(--figma-cream);">PBKDF2-SHA256</strong> pour retrouver votre inventaire et votre deck.
+                    Accédez à votre compte protégé par hachage cryptographique <strong style="color: var(--figma-cream);">PBKDF2-SHA256 (100k itérations)</strong> directement sur Supabase pour retrouver votre inventaire et votre deck.
                 </p>
 
                 <div style="display: flex; flex-direction: column; gap: 0.95rem;">
@@ -142,7 +145,7 @@
                         <input type="text"
                                class="bioma-input"
                                @bind="_loginIdentifier"
-                               @onkeydown="@(async e => { if (e.Key == "Enter") await ExecuteLoginAsync(); })"
+                               @onkeydown="@(async e => { if (e.Key == "Enter" && !_isSubmitting) await ExecuteLoginAsync(); })"
                                placeholder="Votre pseudonyme ou e-mail" />
                     </div>
 
@@ -151,13 +154,13 @@
                         <input type="password"
                                class="bioma-input"
                                @bind="_loginPassword"
-                               @onkeydown="@(async e => { if (e.Key == "Enter") await ExecuteLoginAsync(); })"
+                               @onkeydown="@(async e => { if (e.Key == "Enter" && !_isSubmitting) await ExecuteLoginAsync(); })"
                                placeholder="Votre mot de passe" />
                     </div>
 
-                    <button class="btn-sand" style="margin-top: 0.35rem;" @onclick="ExecuteLoginAsync">
-                        <span>Se connecter</span>
-                        <span>Authentifier</span>
+                    <button class="btn-sand" style="margin-top: 0.35rem;" @onclick="ExecuteLoginAsync" disabled="@_isSubmitting">
+                        <span>@(_isSubmitting ? "Authentification..." : "Se connecter")</span>
+                        <span>@(_isSubmitting ? "..." : "Authentifier")</span>
                     </button>
                 </div>
             </section>
@@ -546,6 +549,7 @@ else
     private string _inventorySearch = string.Empty;
 
     private bool _showOnlyDeck;
+    private bool _isSubmitting;
     private string? _feedbackMessage;
     private bool _feedbackSuccess = true;
 
@@ -616,10 +620,12 @@ else
         if (string.IsNullOrWhiteSpace(_regUsername) || string.IsNullOrWhiteSpace(_regPassword))
         {
             _feedbackSuccess = false;
-            _feedbackMessage = "Veuillez renseigner un pseudonyme et un mot de passe (min. 6 caractères).";
+            _feedbackMessage = "Veuillez renseigner un pseudonyme et un mot de passe sécurisé (min. 8 caractères).";
             return;
         }
 
+        _isSubmitting = true;
+        _feedbackMessage = null;
         try
         {
             var res = await UserService.RegisterAsync(new RegisterUserRequestDto(_regUsername.Trim(), _regEmail?.Trim() ?? "", _regPassword));
@@ -640,7 +646,11 @@ else
         catch (Exception ex)
         {
             _feedbackSuccess = false;
-            _feedbackMessage = $"Erreur lors de la création du compte : {ex.Message}";
+            _feedbackMessage = $"Erreur lors de la création du compte sur Supabase : {ex.Message}";
+        }
+        finally
+        {
+            _isSubmitting = false;
         }
     }
 
@@ -653,6 +663,8 @@ else
             return;
         }
 
+        _isSubmitting = true;
+        _feedbackMessage = null;
         try
         {
             var res = await UserService.LoginAsync(new LoginRequestDto(_loginIdentifier.Trim(), _loginPassword));
@@ -671,7 +683,11 @@ else
         catch (Exception ex)
         {
             _feedbackSuccess = false;
-            _feedbackMessage = $"Erreur lors de la connexion : {ex.Message}";
+            _feedbackMessage = $"Erreur lors de la connexion à Supabase : {ex.Message}";
+        }
+        finally
+        {
+            _isSubmitting = false;
         }
     }
 

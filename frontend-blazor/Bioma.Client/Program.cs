@@ -9,17 +9,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-var postgresConn = builder.Configuration.GetConnectionString("Postgres");
 builder.Services.AddDbContext<BiomaDbContext>(options =>
 {
-    if (!string.IsNullOrWhiteSpace(postgresConn))
-    {
-        options.UseNpgsql(postgresConn);
-    }
-    else
-    {
-        options.UseInMemoryDatabase("BiomaClientSharedDb");
-    }
+    BiomaDbConfiguration.Configure(options, builder.Configuration, builder.Environment.ContentRootPath);
 });
 
 builder.Services.AddHttpClient<IBiomaGameService, BiomaGameService>(client =>

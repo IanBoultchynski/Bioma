@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Bioma.Application")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+421b2cf3e04260d35d8dead158a7a0a17b35a7d0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b85f0217018e1276cba7c5bd63318add13688967")]
 [assembly: System.Reflection.AssemblyProductAttribute("Bioma.Application")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Bioma.Application")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

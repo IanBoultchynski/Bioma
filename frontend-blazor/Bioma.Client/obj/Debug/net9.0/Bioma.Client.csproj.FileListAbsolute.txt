@@ -137,7 +137,6 @@ C:\Users\boultchi\Bioma\frontend-blazor\Bioma.Client\obj\Debug\net9.0\rjimswa.ds
 C:\Users\boultchi\Bioma\frontend-blazor\Bioma.Client\obj\Debug\net9.0\rjsmrazor.dswa.cache.json
 C:\Users\boultchi\Bioma\frontend-blazor\Bioma.Client\obj\Debug\net9.0\rjsmcshtml.dswa.cache.json
 C:\Users\boultchi\Bioma\frontend-blazor\Bioma.Client\obj\Debug\net9.0\scopedcss\bundle\Bioma.Client.styles.css
-C:\Users\boultchi\Bioma\frontend-blazor\Bioma.Client\obj\Debug\net9.0\compressed\ilvspwtuvu-{0}-i7wm3res0d-i7wm3res0d.gz
 C:\Users\boultchi\Bioma\frontend-blazor\Bioma.Client\obj\Debug\net9.0\staticwebassets.build.json
 C:\Users\boultchi\Bioma\frontend-blazor\Bioma.Client\obj\Debug\net9.0\staticwebassets.build.json.cache
 C:\Users\boultchi\Bioma\frontend-blazor\Bioma.Client\obj\Debug\net9.0\staticwebassets.development.json
@@ -176,3 +175,4 @@ C:\Users\boultchi\Bioma\frontend-blazor\Bioma.Client\bin\Live\net9.0\runtimes\wi
 C:\Users\boultchi\Bioma\frontend-blazor\Bioma.Client\bin\Live\net9.0\runtimes\win-arm64\native\e_sqlite3.dll
 C:\Users\boultchi\Bioma\frontend-blazor\Bioma.Client\bin\Live\net9.0\runtimes\win-x64\native\e_sqlite3.dll
 C:\Users\boultchi\Bioma\frontend-blazor\Bioma.Client\bin\Live\net9.0\runtimes\win-x86\native\e_sqlite3.dll
+C:\Users\boultchi\Bioma\frontend-blazor\Bioma.Client\obj\Debug\net9.0\compressed\ilvspwtuvu-{0}-ka5nxakjj3-ka5nxakjj3.gz

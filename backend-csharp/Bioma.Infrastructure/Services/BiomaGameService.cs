@@ -74,7 +74,7 @@ public class BiomaGameService : IBiomaGameService
         var items = new List<ExternalObservationDto>();
         try
         {
-            var url = $"{GbifOccurrenceSearchUrl}?q={Uri.EscapeDataString(query)}&hasCoordinate=true&limit={Math.Clamp(limit, 1, 20)}";
+            var url = $"{GbifOccurrenceSearchUrl}?q={Uri.EscapeDataString(query)}&hasCoordinate=true&mediaType=StillImage&limit={Math.Clamp(limit, 1, 20)}";
             using var response = await _httpClient.GetAsync(url, ct);
 
             if (response.IsSuccessStatusCode)
@@ -203,13 +203,16 @@ public class BiomaGameService : IBiomaGameService
     public async Task<List<CardDto>> GetSavedCardsAsync()
     {
         var cards = await _db.Cards
-            .OrderByDescending(c => c.CreatedAt)
+            .AsNoTracking()
             .ToListAsync();
 
-        return cards.Select(MapToCardDto).ToList();
+        return cards
+            .OrderByDescending(c => c.CreatedAt)
+            .Select(MapToCardDto)
+            .ToList();
     }
 
-    public async Task<CardDto> SaveObservationToBackOfficeAsync(ExternalObservationDto observation)
+    public async Task<CardDto> SaveObservationToBackOfficeAsync(ExternalObservationDto observation, Guid? playerId = null)
     {
         var entity = new SpeciesCard
         {
@@ -228,7 +231,46 @@ public class BiomaGameService : IBiomaGameService
         };
 
         _db.Cards.Add(entity);
+
+        PlayerProfile? targetPlayer = null;
+        if (playerId.HasValue)
+        {
+            targetPlayer = await _db.Players.FirstOrDefaultAsync(p => p.Id == playerId.Value);
+        }
+        else
+        {
+            var allPlayers = await _db.Players.ToListAsync();
+            targetPlayer = allPlayers.OrderBy(p => p.CreatedAt).FirstOrDefault();
+        }
+
+        if (targetPlayer is not null)
+        {
+            _db.PlayerCards.Add(new PlayerCard
+            {
+                PlayerId = targetPlayer.Id,
+                SpeciesCardId = entity.Id,
+                CustomNickname = entity.CommonName,
+                Level = 1,
+                ExperiencePoints = 0,
+                IsInActiveDeck = false,
+                CurrentAttack = entity.BaseAttack,
+                CurrentDefense = entity.BaseDefense,
+                CurrentSpeed = entity.BaseSpeed,
+                WeightKg = entity.AverageWeightKg,
+                PolaroidFinish = "Standard",
+                ObtainedVia = observation.SourceApi,
+                AcquiredAt = DateTimeOffset.UtcNow
+            });
+            targetPlayer.LastCloudSyncAt = DateTimeOffset.UtcNow;
+        }
+
         await _db.SaveChangesAsync();
+
+        if (targetPlayer is not null)
+        {
+            var profileService = new UserProfileService(_db);
+            await profileService.SyncProgressionToCloudAsync(targetPlayer.Id);
+        }
 
         return MapToCardDto(entity);
     }
@@ -314,14 +356,8 @@ public class BiomaGameService : IBiomaGameService
 
     private static string GetFallbackImageForQuery(string query)
     {
-        var q = query.ToLowerInvariant();
-        if (q.Contains("lynx"))
-            return "https://images.unsplash.com/photo-1546182990-dffeafbe841d?auto=format&fit=crop&w=600&q=80";
-        if (q.Contains("alcedo") || q.Contains("martin"))
-            return "https://images.unsplash.com/photo-1444464666168-49d633b86797?auto=format&fit=crop&w=600&q=80";
-        if (q.Contains("ursus") || q.Contains("ours"))
-            return "https://images.unsplash.com/photo-1530595467537-0b5996c41f2d?auto=format&fit=crop&w=600&q=80";
-        return "https://images.unsplash.com/photo-1474511320723-9a56873867b5?auto=format&fit=crop&w=600&q=80";
+        string safeLabel = Uri.EscapeDataString(string.IsNullOrWhiteSpace(query) ? "Specimen" : query);
+        return $"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='420' viewBox='0 0 600 420'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%23193827'/><stop offset='100%' stop-color='%230B1711'/></linearGradient><linearGradient id='glow' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%23DEB861'/><stop offset='100%' stop-color='%2358B77E'/></linearGradient></defs><rect width='600' height='420' fill='url(%23g)'/><circle cx='300' cy='180' r='58' fill='none' stroke='url(%23glow)' stroke-width='2' stroke-dasharray='5,5' opacity='0.7'/><path d='M285 195 C285 160 315 155 315 155 C315 190 285 195 285 195 Z' fill='%2358B77E'/><path d='M285 195 L310 170' stroke='%23193827' stroke-width='2'/><text x='300' y='285' text-anchor='middle' fill='%23F5F1E6' font-family='sans-serif' font-weight='600' font-size='20'>{safeLabel}</text><text x='300' y='315' text-anchor='middle' fill='%238FA898' font-family='sans-serif' font-size='12' letter-spacing='1'>BIOMA DATABASE</text></svg>";
     }
 
     private static List<ExternalObservationDto> BuildFallbackObservations(string query, string source, int count)

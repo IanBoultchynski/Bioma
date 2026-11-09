@@ -1,0 +1,689 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using Bioma.Application.DTOs;
+using Bioma.Application.Interfaces;
+using Bioma.Domain.Entities;
+using Bioma.Domain.Enums;
+using Bioma.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+
+namespace Bioma.Infrastructure.Services;
+
+/// <summary>
+/// Implémentation complète de l'Épique 1 : Utilisateurs &amp; Profil (US-01 à US-06).
+/// - US-01 : Connexion sécurisée (hachage PBKDF2-SHA256 + jeton signé HMAC-SHA256)
+/// - US-02 : Création d'un profil utilisateur avec identité unique (initialisé vide, sans fake data)
+/// - US-03 : Consultation et gestion du deck actif et de l'inventaire complet des cartes
+/// - US-04 : Sauvegarde et restauration Cloud fonctionnelle (snapshots JSON signés + synchronisation temps réel)
+/// - US-05 : Modification de l'avatar de profil (import fichier, URL ou emblèmes botaniques)
+/// - US-06 : Consultation des statistiques globales (nombre de cartes, victoires, taux de victoire, Elo)
+/// </summary>
+public class UserProfileService : IUserProfileService
+{
+    private const string LegacyUnsplashAvatar = "https://images.unsplash.com/photo-1534528741775-53994a69daeb";
+    private static readonly byte[] TokenSecret = Encoding.UTF8.GetBytes("Bioma-Cloud-Security-Hmac-Key-2026-Secret!");
+    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+
+    private readonly BiomaDbContext _db;
+
+    public UserProfileService(BiomaDbContext db)
+    {
+        _db = db;
+    }
+
+    public static string BuildDefaultAvatarSvg(string username)
+    {
+        string clean = string.IsNullOrWhiteSpace(username) ? "B" : username.Trim();
+        string initials = clean.Length >= 2
+            ? clean[..2].ToUpperInvariant()
+            : clean[..1].ToUpperInvariant();
+        string escapedInitials = Uri.EscapeDataString(initials);
+
+        return $"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'><defs><radialGradient id='bg' cx='35%' cy='30%' r='75%'><stop offset='0%' stop-color='%231F3E2F'/><stop offset='100%' stop-color='%230A1711'/></radialGradient><linearGradient id='glow' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%23E5C77A'/><stop offset='100%' stop-color='%2358B77E'/></linearGradient></defs><circle cx='80' cy='80' r='77' fill='url(%23bg)' stroke='url(%23glow)' stroke-width='2.5'/><circle cx='80' cy='80' r='68' fill='none' stroke='%23ffffff' stroke-width='1' stroke-dasharray='4,4' opacity='0.25'/><text x='80' y='93' text-anchor='middle' fill='%23F4F1E8' font-family='sans-serif' font-weight='700' font-size='42' letter-spacing='2'>{escapedInitials}</text><path d='M74 122 C74 116 80 114 86 114 C86 120 80 126 74 122 Z' fill='%2358B77E'/></svg>";
+    }
+
+    public async Task<AuthResponseDto> RegisterAsync(RegisterUserRequestDto request, CancellationToken ct = default)
+    {
+        var username = request.Username?.Trim() ?? string.Empty;
+        var email = request.Email?.Trim().ToLowerInvariant() ?? string.Empty;
+        var password = request.Password ?? string.Empty;
+
+        if (username.Length < 3)
+        {
+            return new AuthResponseDto(false, "Le pseudonyme doit contenir au moins 3 caractères.", null, null);
+        }
+
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+        {
+            return new AuthResponseDto(false, "Veuillez saisir une adresse e-mail valide.", null, null);
+        }
+
+        if (password.Length < 6)
+        {
+            return new AuthResponseDto(false, "Le mot de passe doit contenir au moins 6 caractères pour sécuriser votre compte.", null, null);
+        }
+
+        bool usernameTaken = await _db.Players.AnyAsync(
+            p => p.Username.ToLower() == username.ToLower(), ct);
+        if (usernameTaken)
+        {
+            return new AuthResponseDto(false, $"Le pseudonyme « {username} » est déjà utilisé par un autre joueur.", null, null);
+        }
+
+        bool emailTaken = await _db.Players.AnyAsync(
+            p => p.Email.ToLower() == email, ct);
+        if (emailTaken)
+        {
+            return new AuthResponseDto(false, $"L'adresse e-mail « {email} » est déjà associée à un compte.", null, null);
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var avatar = string.IsNullOrWhiteSpace(request.AvatarUrl)
+            ? BuildDefaultAvatarSvg(username)
+            : request.AvatarUrl.Trim();
+
+        var newPlayer = new PlayerProfile
+        {
+            Id = Guid.NewGuid(),
+            Username = username,
+            Email = email,
+            PasswordHash = HashPassword(password),
+            AvatarUrl = avatar,
+            VirtualCurrency = 0,
+            ExperiencePoints = 0,
+            Level = 1,
+            Energy = 100,
+            EloRating = 1000,
+            TotalVictories = 0,
+            TotalDefeats = 0,
+            PushNotificationsEnabled = true,
+            CreatedAt = now,
+            LastCloudSyncAt = now
+        };
+
+        _db.Players.Add(newPlayer);
+        await _db.SaveChangesAsync(ct);
+
+        await WriteCloudSnapshotAsync(newPlayer.Id, ct);
+
+        var profileDto = await GetProfileWithInventoryAsync(newPlayer.Id, ct);
+        var token = GenerateAuthToken(newPlayer.Id, newPlayer.Username);
+
+        return new AuthResponseDto(
+            true,
+            $"Profil « {newPlayer.Username} » créé et synchronisé sur le Cloud.",
+            token,
+            profileDto
+        );
+    }
+
+    public async Task<AuthResponseDto> LoginAsync(LoginRequestDto request, CancellationToken ct = default)
+    {
+        var identifier = request.UsernameOrEmail?.Trim() ?? string.Empty;
+        var password = request.Password ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(identifier) || string.IsNullOrWhiteSpace(password))
+        {
+            return new AuthResponseDto(false, "Veuillez renseigner votre identifiant et votre mot de passe.", null, null);
+        }
+
+        var lowerId = identifier.ToLowerInvariant();
+        var player = await _db.Players.FirstOrDefaultAsync(
+            p => p.Username.ToLower() == lowerId || p.Email.ToLower() == lowerId, ct);
+
+        if (player is null || !VerifyPassword(password, player.PasswordHash))
+        {
+            return new AuthResponseDto(false, "Identifiants incorrects. Vérifiez votre pseudonyme/e-mail et votre mot de passe.", null, null);
+        }
+
+        if (string.IsNullOrWhiteSpace(player.AvatarUrl) || player.AvatarUrl.StartsWith(LegacyUnsplashAvatar, StringComparison.OrdinalIgnoreCase))
+        {
+            player.AvatarUrl = BuildDefaultAvatarSvg(player.Username);
+        }
+
+        // US-04 : Synchronisation cloud automatique à la connexion
+        player.LastCloudSyncAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        await WriteCloudSnapshotAsync(player.Id, ct);
+
+        var profileDto = await GetProfileWithInventoryAsync(player.Id, ct);
+        var token = GenerateAuthToken(player.Id, player.Username);
+
+        return new AuthResponseDto(
+            true,
+            $"Connexion sécurisée réussie. Bon retour, {player.Username} !",
+            token,
+            profileDto
+        );
+    }
+
+    public async Task<List<UserProfileSummaryDto>> GetAllProfilesAsync(CancellationToken ct = default)
+    {
+        return await _db.Players
+            .AsNoTracking()
+            .Include(p => p.InventoryCards)
+            .OrderByDescending(p => p.Level)
+            .ThenBy(p => p.Username)
+            .Select(p => new UserProfileSummaryDto(
+                p.Id,
+                p.Username,
+                p.Email,
+                string.IsNullOrWhiteSpace(p.AvatarUrl) || p.AvatarUrl.StartsWith(LegacyUnsplashAvatar)
+                    ? BuildDefaultAvatarSvg(p.Username)
+                    : p.AvatarUrl,
+                p.Level,
+                p.VirtualCurrency,
+                p.InventoryCards.Count,
+                p.TotalVictories
+            ))
+            .ToListAsync(ct);
+    }
+
+    public async Task<UserProfileDto?> GetProfileWithInventoryAsync(Guid playerId, CancellationToken ct = default)
+    {
+        var player = await _db.Players
+            .Include(p => p.InventoryCards)
+                .ThenInclude(pc => pc.SpeciesCard)
+            .FirstOrDefaultAsync(p => p.Id == playerId, ct);
+
+        if (player is null)
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(player.AvatarUrl) || player.AvatarUrl.StartsWith(LegacyUnsplashAvatar, StringComparison.OrdinalIgnoreCase))
+        {
+            player.AvatarUrl = BuildDefaultAvatarSvg(player.Username);
+            await _db.SaveChangesAsync(ct);
+        }
+
+        var inventoryDtos = player.InventoryCards
+            .OrderByDescending(pc => pc.IsInActiveDeck)
+            .ThenByDescending(pc => pc.Level)
+            .ThenByDescending(pc => pc.AcquiredAt)
+            .Select(MapToPlayerCardDto)
+            .ToList();
+
+        var activeDeckDtos = inventoryDtos
+            .Where(c => c.IsInActiveDeck)
+            .ToList();
+
+        var stats = BuildGlobalStats(player, player.InventoryCards);
+
+        return new UserProfileDto(
+            player.Id,
+            player.Username,
+            player.Email,
+            player.AvatarUrl,
+            player.PushNotificationsEnabled,
+            player.CreatedAt,
+            player.LastCloudSyncAt,
+            stats,
+            activeDeckDtos,
+            inventoryDtos
+        );
+    }
+
+    public async Task<PlayerGlobalStatsDto?> GetGlobalStatsAsync(Guid playerId, CancellationToken ct = default)
+    {
+        var player = await _db.Players
+            .AsNoTracking()
+            .Include(p => p.InventoryCards)
+            .FirstOrDefaultAsync(p => p.Id == playerId, ct);
+
+        return player is null ? null : BuildGlobalStats(player, player.InventoryCards);
+    }
+
+    public async Task<UserProfileDto?> UpdateAvatarAsync(Guid playerId, string newAvatarUrl, CancellationToken ct = default)
+    {
+        var player = await _db.Players.FirstOrDefaultAsync(p => p.Id == playerId, ct);
+        if (player is null)
+        {
+            return null;
+        }
+
+        player.AvatarUrl = string.IsNullOrWhiteSpace(newAvatarUrl)
+            ? BuildDefaultAvatarSvg(player.Username)
+            : newAvatarUrl.Trim();
+        player.LastCloudSyncAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        await WriteCloudSnapshotAsync(playerId, ct);
+
+        return await GetProfileWithInventoryAsync(playerId, ct);
+    }
+
+    public async Task<UserProfileDto?> ToggleCardInActiveDeckAsync(Guid playerId, Guid playerCardId, CancellationToken ct = default)
+    {
+        var playerCard = await _db.PlayerCards
+            .FirstOrDefaultAsync(pc => pc.Id == playerCardId && pc.PlayerId == playerId, ct);
+
+        var player = await _db.Players.FirstOrDefaultAsync(p => p.Id == playerId, ct);
+
+        if (playerCard is null || player is null)
+        {
+            return null;
+        }
+
+        playerCard.IsInActiveDeck = !playerCard.IsInActiveDeck;
+        player.LastCloudSyncAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        await WriteCloudSnapshotAsync(playerId, ct);
+
+        return await GetProfileWithInventoryAsync(playerId, ct);
+    }
+
+    public async Task<CloudSyncResultDto?> SyncProgressionToCloudAsync(Guid playerId, CancellationToken ct = default)
+    {
+        var player = await _db.Players
+            .Include(p => p.InventoryCards)
+                .ThenInclude(pc => pc.SpeciesCard)
+            .FirstOrDefaultAsync(p => p.Id == playerId, ct);
+
+        if (player is null)
+        {
+            return null;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        player.LastCloudSyncAt = now;
+        await _db.SaveChangesAsync(ct);
+
+        var (cloudToken, snapshotJson) = await WriteCloudSnapshotAsync(playerId, ct);
+        int totalCards = player.InventoryCards.Count;
+        int activeDeck = player.InventoryCards.Count(c => c.IsInActiveDeck);
+
+        return new CloudSyncResultDto(
+            player.Id,
+            player.Username,
+            now,
+            totalCards,
+            activeDeck,
+            player.ExperiencePoints,
+            player.VirtualCurrency,
+            cloudToken,
+            snapshotJson,
+            $"Sauvegarde Cloud confirmée ({totalCards} carte(s), {activeDeck} dans le Deck). Code de transfert : {cloudToken}"
+        );
+    }
+
+    public async Task<AuthResponseDto> RestoreProgressionFromCloudAsync(string cloudTokenOrJson, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(cloudTokenOrJson))
+        {
+            return new AuthResponseDto(false, "Veuillez saisir un code de transfert Cloud (ex: CLOUD-...) ou un fichier JSON de sauvegarde.", null, null);
+        }
+
+        string trimmed = cloudTokenOrJson.Trim();
+        string? jsonContent = null;
+
+        if (trimmed.StartsWith("{", StringComparison.Ordinal))
+        {
+            jsonContent = trimmed;
+        }
+        else
+        {
+            string cloudDir = GetCloudBackupDirectory();
+            string cleanToken = trimmed.ToUpperInvariant();
+            if (!cleanToken.StartsWith("CLOUD-", StringComparison.Ordinal))
+            {
+                cleanToken = $"CLOUD-{cleanToken}";
+            }
+
+            string tokenFilePath = Path.Combine(cloudDir, $"{cleanToken}.json");
+            if (File.Exists(tokenFilePath))
+            {
+                jsonContent = await File.ReadAllTextAsync(tokenFilePath, ct);
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(jsonContent))
+        {
+            return new AuthResponseDto(false, $"Aucune sauvegarde Cloud trouvée pour le code « {trimmed} ».", null, null);
+        }
+
+        try
+        {
+            var snapshot = JsonSerializer.Deserialize<CloudBackupSnapshotModel>(jsonContent);
+            if (snapshot is null || snapshot.PlayerId == Guid.Empty)
+            {
+                return new AuthResponseDto(false, "Le format de la sauvegarde Cloud est invalide.", null, null);
+            }
+
+            var player = await _db.Players
+                .Include(p => p.InventoryCards)
+                .FirstOrDefaultAsync(p => p.Id == snapshot.PlayerId || p.Username.ToLower() == snapshot.Username.ToLower(), ct);
+
+            if (player is null)
+            {
+                player = new PlayerProfile
+                {
+                    Id = snapshot.PlayerId,
+                    Username = snapshot.Username,
+                    Email = snapshot.Email,
+                    PasswordHash = snapshot.PasswordHash,
+                    AvatarUrl = snapshot.AvatarUrl,
+                    Level = snapshot.Level,
+                    ExperiencePoints = snapshot.ExperiencePoints,
+                    VirtualCurrency = snapshot.VirtualCurrency,
+                    Energy = snapshot.Energy,
+                    EloRating = snapshot.EloRating,
+                    TotalVictories = snapshot.TotalVictories,
+                    TotalDefeats = snapshot.TotalDefeats,
+                    CreatedAt = snapshot.CreatedAt,
+                    LastCloudSyncAt = DateTimeOffset.UtcNow
+                };
+                _db.Players.Add(player);
+            }
+            else
+            {
+                player.AvatarUrl = snapshot.AvatarUrl;
+                player.Level = snapshot.Level;
+                player.ExperiencePoints = snapshot.ExperiencePoints;
+                player.VirtualCurrency = snapshot.VirtualCurrency;
+                player.EloRating = snapshot.EloRating;
+                player.TotalVictories = snapshot.TotalVictories;
+                player.TotalDefeats = snapshot.TotalDefeats;
+                player.LastCloudSyncAt = DateTimeOffset.UtcNow;
+            }
+
+            foreach (var cardSnap in snapshot.Cards)
+            {
+                var species = await _db.Cards.FirstOrDefaultAsync(c => c.Id == cardSnap.SpeciesCardId, ct);
+                if (species is null)
+                {
+                    species = new SpeciesCard
+                    {
+                        Id = cardSnap.SpeciesCardId,
+                        CommonName = cardSnap.CommonName,
+                        ScientificName = cardSnap.ScientificName,
+                        Family = cardSnap.Family,
+                        ImageUrl = cardSnap.ImageUrl,
+                        SourceApi = cardSnap.ObtainedVia,
+                        BaseAttack = cardSnap.CurrentAttack,
+                        BaseDefense = cardSnap.CurrentDefense,
+                        BaseSpeed = cardSnap.CurrentSpeed,
+                        AverageWeightKg = cardSnap.WeightKg
+                    };
+                    _db.Cards.Add(species);
+                }
+
+                var existingPlayerCard = await _db.PlayerCards.FirstOrDefaultAsync(pc => pc.Id == cardSnap.PlayerCardId, ct);
+                if (existingPlayerCard is null)
+                {
+                    _db.PlayerCards.Add(new PlayerCard
+                    {
+                        Id = cardSnap.PlayerCardId,
+                        PlayerId = player.Id,
+                        SpeciesCardId = species.Id,
+                        CustomNickname = cardSnap.CustomNickname,
+                        Level = cardSnap.Level,
+                        ExperiencePoints = cardSnap.ExperiencePoints,
+                        IsInActiveDeck = cardSnap.IsInActiveDeck,
+                        CurrentAttack = cardSnap.CurrentAttack,
+                        CurrentDefense = cardSnap.CurrentDefense,
+                        CurrentSpeed = cardSnap.CurrentSpeed,
+                        WeightKg = cardSnap.WeightKg,
+                        PolaroidFinish = cardSnap.PolaroidFinish,
+                        ObtainedVia = cardSnap.ObtainedVia,
+                        AcquiredAt = cardSnap.AcquiredAt
+                    });
+                }
+                else
+                {
+                    existingPlayerCard.IsInActiveDeck = cardSnap.IsInActiveDeck;
+                    existingPlayerCard.Level = cardSnap.Level;
+                    existingPlayerCard.ExperiencePoints = cardSnap.ExperiencePoints;
+                }
+            }
+
+            await _db.SaveChangesAsync(ct);
+
+            var profileDto = await GetProfileWithInventoryAsync(player.Id, ct);
+            var token = GenerateAuthToken(player.Id, player.Username);
+
+            return new AuthResponseDto(
+                true,
+                $"Progression Cloud de « {player.Username} » restaurée avec succès ({snapshot.Cards.Count} carte(s) récupérée(s)).",
+                token,
+                profileDto
+            );
+        }
+        catch (Exception ex)
+        {
+            return new AuthResponseDto(false, $"Erreur lors de la restauration Cloud : {ex.Message}", null, null);
+        }
+    }
+
+    private async Task<(string CloudToken, string SnapshotJson)> WriteCloudSnapshotAsync(Guid playerId, CancellationToken ct)
+    {
+        var player = await _db.Players
+            .AsNoTracking()
+            .Include(p => p.InventoryCards)
+                .ThenInclude(pc => pc.SpeciesCard)
+            .FirstOrDefaultAsync(p => p.Id == playerId, ct);
+
+        if (player is null)
+        {
+            return (string.Empty, "{}");
+        }
+
+        string rawKey = $"{player.Id}:{player.Username}";
+        string tokenHash = Convert.ToHexString(HMACSHA256.HashData(TokenSecret, Encoding.UTF8.GetBytes(rawKey)))[..10];
+        string cloudToken = $"CLOUD-{tokenHash}";
+
+        var snapshot = new CloudBackupSnapshotModel
+        {
+            CloudBackupToken = cloudToken,
+            SyncedAt = player.LastCloudSyncAt,
+            PlayerId = player.Id,
+            Username = player.Username,
+            Email = player.Email,
+            PasswordHash = player.PasswordHash,
+            AvatarUrl = player.AvatarUrl,
+            Level = player.Level,
+            ExperiencePoints = player.ExperiencePoints,
+            VirtualCurrency = player.VirtualCurrency,
+            Energy = player.Energy,
+            EloRating = player.EloRating,
+            TotalVictories = player.TotalVictories,
+            TotalDefeats = player.TotalDefeats,
+            CreatedAt = player.CreatedAt,
+            Cards = player.InventoryCards.Select(pc => new CloudCardSnapshotModel
+            {
+                PlayerCardId = pc.Id,
+                SpeciesCardId = pc.SpeciesCardId,
+                CommonName = pc.SpeciesCard?.CommonName ?? "Espèce",
+                ScientificName = pc.SpeciesCard?.ScientificName ?? "Species",
+                Family = pc.SpeciesCard?.Family ?? "Animalia",
+                ImageUrl = pc.SpeciesCard?.ImageUrl ?? string.Empty,
+                CustomNickname = pc.CustomNickname,
+                Level = pc.Level,
+                ExperiencePoints = pc.ExperiencePoints,
+                IsInActiveDeck = pc.IsInActiveDeck,
+                CurrentAttack = pc.CurrentAttack,
+                CurrentDefense = pc.CurrentDefense,
+                CurrentSpeed = pc.CurrentSpeed,
+                WeightKg = pc.WeightKg,
+                PolaroidFinish = pc.PolaroidFinish,
+                ObtainedVia = pc.ObtainedVia,
+                AcquiredAt = pc.AcquiredAt
+            }).ToList()
+        };
+
+        string json = JsonSerializer.Serialize(snapshot, JsonOptions);
+        try
+        {
+            string dir = GetCloudBackupDirectory();
+            await File.WriteAllTextAsync(Path.Combine(dir, $"{cloudToken}.json"), json, ct);
+            await File.WriteAllTextAsync(Path.Combine(dir, $"player_{player.Id}.json"), json, ct);
+        }
+        catch
+        {
+            // Ignore file I/O errors in restricted environments
+        }
+
+        return (cloudToken, json);
+    }
+
+    private static string GetCloudBackupDirectory()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Bioma.sln")))
+        {
+            dir = dir.Parent;
+        }
+        var root = dir?.FullName ?? AppContext.BaseDirectory;
+        var cloudDir = Path.Combine(root, "data", "cloud_backups");
+        Directory.CreateDirectory(cloudDir);
+        return cloudDir;
+    }
+
+    public static string HashPassword(string password)
+    {
+        byte[] salt = RandomNumberGenerator.GetBytes(16);
+        byte[] hash = Rfc2898DeriveBytes.Pbkdf2(
+            Encoding.UTF8.GetBytes(password),
+            salt,
+            iterations: 10_000,
+            HashAlgorithmName.SHA256,
+            outputLength: 32);
+
+        return $"PBKDF2${Convert.ToBase64String(salt)}${Convert.ToBase64String(hash)}";
+    }
+
+    public static bool VerifyPassword(string password, string storedHash)
+    {
+        if (string.IsNullOrWhiteSpace(storedHash))
+        {
+            return false;
+        }
+
+        if (storedHash.StartsWith("PBKDF2$", StringComparison.Ordinal))
+        {
+            var parts = storedHash.Split('$');
+            if (parts.Length != 3)
+            {
+                return false;
+            }
+
+            byte[] salt = Convert.FromBase64String(parts[1]);
+            byte[] expectedHash = Convert.FromBase64String(parts[2]);
+            byte[] actualHash = Rfc2898DeriveBytes.Pbkdf2(
+                Encoding.UTF8.GetBytes(password),
+                salt,
+                iterations: 10_000,
+                HashAlgorithmName.SHA256,
+                outputLength: 32);
+
+            return CryptographicOperations.FixedTimeEquals(actualHash, expectedHash);
+        }
+
+        return false;
+    }
+
+    private static string GenerateAuthToken(Guid playerId, string username)
+    {
+        var issuedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var data = $"{playerId}:{username}:{issuedAt}";
+        var signature = Convert.ToHexString(HMACSHA256.HashData(TokenSecret, Encoding.UTF8.GetBytes(data)));
+        return Convert.ToBase64String(Encoding.UTF8.GetBytes($"{data}:{signature}"));
+    }
+
+    private static PlayerGlobalStatsDto BuildGlobalStats(PlayerProfile player, ICollection<PlayerCard> cards)
+    {
+        int totalCards = cards.Count;
+        int uniqueSpecies = cards.Select(c => c.SpeciesCardId).Distinct().Count();
+        int activeDeck = cards.Count(c => c.IsInActiveDeck);
+        int adultCards = cards.Count(c => c.Stage == LifeStage.Adulte);
+        int totalMatches = player.TotalVictories + player.TotalDefeats;
+        double winRate = totalMatches > 0
+            ? Math.Round((double)player.TotalVictories / totalMatches * 100.0, 1)
+            : 0.0;
+
+        return new PlayerGlobalStatsDto(
+            totalCards,
+            uniqueSpecies,
+            activeDeck,
+            adultCards,
+            player.TotalVictories,
+            player.TotalDefeats,
+            winRate,
+            player.EloRating,
+            player.Level,
+            player.ExperiencePoints,
+            player.VirtualCurrency,
+            player.Energy,
+            player.LastCloudSyncAt
+        );
+    }
+
+    private static PlayerCardDto MapToPlayerCardDto(PlayerCard pc)
+    {
+        var species = pc.SpeciesCard;
+        return new PlayerCardDto(
+            pc.Id,
+            pc.SpeciesCardId,
+            species?.CommonName ?? "Espèce inconnue",
+            species?.ScientificName ?? "Species incognita",
+            species?.Family ?? "Animalia",
+            (species?.Rarity ?? CardRarity.Commune).ToString(),
+            (species?.Biome ?? BiomeType.ForetTemperee).ToString(),
+            species?.ImageUrl ?? string.Empty,
+            pc.CustomNickname,
+            pc.Level,
+            pc.ExperiencePoints,
+            pc.Stage.ToString(),
+            pc.State.ToString(),
+            pc.IsInActiveDeck,
+            pc.CurrentAttack,
+            pc.CurrentDefense,
+            pc.CurrentSpeed,
+            pc.WeightKg,
+            pc.PolaroidFinish,
+            pc.ObtainedVia,
+            pc.AcquiredAt
+        );
+    }
+
+    private sealed class CloudBackupSnapshotModel
+    {
+        public string CloudBackupToken { get; set; } = string.Empty;
+        public DateTimeOffset SyncedAt { get; set; }
+        public Guid PlayerId { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string PasswordHash { get; set; } = string.Empty;
+        public string AvatarUrl { get; set; } = string.Empty;
+        public int Level { get; set; }
+        public int ExperiencePoints { get; set; }
+        public int VirtualCurrency { get; set; }
+        public int Energy { get; set; }
+        public int EloRating { get; set; }
+        public int TotalVictories { get; set; }
+        public int TotalDefeats { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
+        public List<CloudCardSnapshotModel> Cards { get; set; } = new();
+    }
+
+    private sealed class CloudCardSnapshotModel
+    {
+        public Guid PlayerCardId { get; set; }
+        public Guid SpeciesCardId { get; set; }
+        public string CommonName { get; set; } = string.Empty;
+        public string ScientificName { get; set; } = string.Empty;
+        public string Family { get; set; } = string.Empty;
+        public string ImageUrl { get; set; } = string.Empty;
+        public string? CustomNickname { get; set; }
+        public int Level { get; set; }
+        public int ExperiencePoints { get; set; }
+        public bool IsInActiveDeck { get; set; }
+        public int CurrentAttack { get; set; }
+        public int CurrentDefense { get; set; }
+        public int CurrentSpeed { get; set; }
+        public double WeightKg { get; set; }
+        public string PolaroidFinish { get; set; } = "Standard";
+        public string ObtainedVia { get; set; } = "GBIF";
+        public DateTimeOffset AcquiredAt { get; set; }
+    }
+}

@@ -1,11 +1,11 @@
+using Bioma.Application.DTOs;
 using Bioma.Domain.Entities;
 using Bioma.Domain.Enums;
 
 namespace Bioma.Application.Interfaces;
 
 // ============================================================================
-// CONTRATS D'APPLICATION PRÉPARATOIRES POUR LES 13 ÉPIQUES (US-01 à US-66)
-// (À implémenter au fur et à mesure de l'avancement des User Stories)
+// CONTRATS D'APPLICATION POUR LES 13 ÉPIQUES (US-01 à US-66)
 // ============================================================================
 
 /// <summary>
@@ -13,13 +13,32 @@ namespace Bioma.Application.Interfaces;
 /// </summary>
 public interface IUserProfileService
 {
-    // US-01 : Connexion sécurisée
-    // US-02 : Création de profil unique
-    // US-03 : Consultation du deck et de l'inventaire
-    // US-04 : Synchronisation cloud de la progression
-    // US-05 : Modification de l'avatar
-    // US-06 : Consultation des statistiques globales (cartes, victoires)
-    // US-66 : Activation / désactivation des notifications push
+    /// <summary>US-02 : Créer un profil utilisateur avec une identité unique dans le jeu.</summary>
+    Task<AuthResponseDto> RegisterAsync(RegisterUserRequestDto request, CancellationToken ct = default);
+
+    /// <summary>US-01 : Se connecter de manière sécurisée afin de protéger son compte et ses cartes.</summary>
+    Task<AuthResponseDto> LoginAsync(LoginRequestDto request, CancellationToken ct = default);
+
+    /// <summary>Liste des profils existants.</summary>
+    Task<List<UserProfileSummaryDto>> GetAllProfilesAsync(CancellationToken ct = default);
+
+    /// <summary>US-03 & US-06 : Consulter son profil complet, son deck actif, son inventaire et ses statistiques globales.</summary>
+    Task<UserProfileDto?> GetProfileWithInventoryAsync(Guid playerId, CancellationToken ct = default);
+
+    /// <summary>US-06 : Consulter ses statistiques globales (nombre de cartes, victoires) afin de suivre sa progression globale.</summary>
+    Task<PlayerGlobalStatsDto?> GetGlobalStatsAsync(Guid playerId, CancellationToken ct = default);
+
+    /// <summary>US-05 : Modifier son avatar de profil afin de personnaliser son compte.</summary>
+    Task<UserProfileDto?> UpdateAvatarAsync(Guid playerId, string newAvatarUrl, CancellationToken ct = default);
+
+    /// <summary>US-03 : Basculer une carte de l'inventaire dans ou hors du deck actif.</summary>
+    Task<UserProfileDto?> ToggleCardInActiveDeckAsync(Guid playerId, Guid playerCardId, CancellationToken ct = default);
+
+    /// <summary>US-04 : Sauvegarder et synchroniser automatiquement sa progression sur le cloud.</summary>
+    Task<CloudSyncResultDto?> SyncProgressionToCloudAsync(Guid playerId, CancellationToken ct = default);
+
+    /// <summary>US-04 : Restaurer sa progression et ses cartes depuis le Cloud (changement d'appareil).</summary>
+    Task<AuthResponseDto> RestoreProgressionFromCloudAsync(string cloudTokenOrJson, CancellationToken ct = default);
 }
 
 /// <summary>

@@ -17,8 +17,10 @@
     <div class="polaroid-scientific" style="@(Compact ? "font-size: 0.6rem; margin-bottom: 4px;" : "")">@Card.ScientificSubtitle</div>
 
     <div class="polaroid-footer" style="@(Compact ? "font-size: 0.58rem; padding-top: 3px;" : "")">
-        <span style="display: inline-flex; align-items: center;">
-            <span class="polaroid-dot @dotClass"></span>
+        <span style="display: inline-flex; align-items: center; gap: 4px;">
+            <svg class="polaroid-source-icon @dotClass" width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="12,2 22,12 12,22 2,12" />
+            </svg>
             <span>@Card.SourceApi</span>
         </span>
         @if (!Compact)

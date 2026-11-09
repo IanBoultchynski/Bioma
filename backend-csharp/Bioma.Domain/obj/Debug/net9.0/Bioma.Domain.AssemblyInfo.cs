@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Bioma.Domain")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b85f0217018e1276cba7c5bd63318add13688967")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ce90eff4af928594dce32c0dfeabd429d6ed3ba3")]
 [assembly: System.Reflection.AssemblyProductAttribute("Bioma.Domain")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Bioma.Domain")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -7,12 +7,16 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents(options => options.DetailedErrors = true);
+
+builder.Services.AddScoped<UserSessionState>();
 
 builder.Services.AddDbContext<BiomaDbContext>(options =>
 {
     BiomaDbConfiguration.Configure(options, builder.Configuration, builder.Environment.ContentRootPath);
 });
+
+builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 
 builder.Services.AddHttpClient<IBiomaGameService, BiomaGameService>(client =>
 {

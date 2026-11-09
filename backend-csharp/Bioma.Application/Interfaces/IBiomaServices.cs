@@ -14,6 +14,6 @@ public interface IBiomaGameService
     Task<List<ExternalObservationDto>> FetchFromInaturalistAsync(string query, int limit = 4, CancellationToken ct = default);
 
     Task<List<CardDto>> GetSavedCardsAsync();
-    Task<CardDto> SaveObservationToBackOfficeAsync(ExternalObservationDto observation);
+    Task<CardDto> SaveObservationToBackOfficeAsync(ExternalObservationDto observation, Guid? playerId = null);
     Task<bool> DeleteCardAsync(Guid cardId);
 }

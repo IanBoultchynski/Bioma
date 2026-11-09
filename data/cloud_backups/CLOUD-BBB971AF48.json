@@ -1,0 +1,18 @@
+{
+  "CloudBackupToken": "CLOUD-BBB971AF48",
+  "SyncedAt": "2026-11-09T13:34:03.931529+00:00",
+  "PlayerId": "63e2ab0a-904c-447a-8563-e2ba915a3a51",
+  "Username": "AigleRoyal99",
+  "Email": "aigle@bioma.fr",
+  "PasswordHash": "PBKDF2$NlkvpBGYhvFjQNPMoidV2A==$YP\u002BJ4GsMD5L1KqNSk6Mi64Q6JcogwkdqB1nRV\u002BJ5YoI=",
+  "AvatarUrl": "data:image/svg\u002Bxml;utf8,\u003Csvg xmlns=\u0027http://www.w3.org/2000/svg\u0027 width=\u0027160\u0027 height=\u0027160\u0027 viewBox=\u00270 0 160 160\u0027\u003E\u003Cdefs\u003E\u003CradialGradient id=\u0027bg\u0027 cx=\u002735%\u0027 cy=\u002730%\u0027 r=\u002775%\u0027\u003E\u003Cstop offset=\u00270%\u0027 stop-color=\u0027%231F3E2F\u0027/\u003E\u003Cstop offset=\u0027100%\u0027 stop-color=\u0027%230A1711\u0027/\u003E\u003C/radialGradient\u003E\u003ClinearGradient id=\u0027glow\u0027 x1=\u00270\u0027 y1=\u00270\u0027 x2=\u00271\u0027 y2=\u00271\u0027\u003E\u003Cstop offset=\u00270%\u0027 stop-color=\u0027%23E5C77A\u0027/\u003E\u003Cstop offset=\u0027100%\u0027 stop-color=\u0027%2358B77E\u0027/\u003E\u003C/linearGradient\u003E\u003C/defs\u003E\u003Ccircle cx=\u002780\u0027 cy=\u002780\u0027 r=\u002777\u0027 fill=\u0027url(%23bg)\u0027 stroke=\u0027url(%23glow)\u0027 stroke-width=\u00272.5\u0027/\u003E\u003Ccircle cx=\u002780\u0027 cy=\u002780\u0027 r=\u002768\u0027 fill=\u0027none\u0027 stroke=\u0027%23ffffff\u0027 stroke-width=\u00271\u0027 stroke-dasharray=\u00274,4\u0027 opacity=\u00270.25\u0027/\u003E\u003Ctext x=\u002780\u0027 y=\u002793\u0027 text-anchor=\u0027middle\u0027 fill=\u0027%23F4F1E8\u0027 font-family=\u0027sans-serif\u0027 font-weight=\u0027700\u0027 font-size=\u002742\u0027 letter-spacing=\u00272\u0027\u003EAI\u003C/text\u003E\u003Cpath d=\u0027M74 122 C74 116 80 114 86 114 C86 120 80 126 74 122 Z\u0027 fill=\u0027%2358B77E\u0027/\u003E\u003C/svg\u003E",
+  "Level": 1,
+  "ExperiencePoints": 0,
+  "VirtualCurrency": 0,
+  "Energy": 100,
+  "EloRating": 1000,
+  "TotalVictories": 0,
+  "TotalDefeats": 0,
+  "CreatedAt": "2026-11-09T13:34:03.931529+00:00",
+  "Cards": []
+}

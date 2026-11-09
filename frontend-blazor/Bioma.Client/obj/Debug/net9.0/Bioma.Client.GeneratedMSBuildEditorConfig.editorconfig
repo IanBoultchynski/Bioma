@@ -26,6 +26,10 @@ build_property.EnableCodeStyleSeverity =
 build_metadata.AdditionalFiles.TargetPath = QXBwLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/boultchi/Bioma/frontend-blazor/Bioma.Client/Pages/Profil.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUHJvZmlsLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/boultchi/Bioma/frontend-blazor/Bioma.Client/Pages/Refuge.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUmVmdWdlLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 

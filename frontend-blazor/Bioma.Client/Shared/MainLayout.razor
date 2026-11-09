@@ -1,24 +1,105 @@
 @inherits LayoutComponentBase
+@implements IDisposable
+@using Bioma.Application.Interfaces
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject UserSessionState Session
+@inject IUserProfileService UserService
+@inject ProtectedLocalStorage LocalStorage
 
 <header class="bioma-navbar">
     <div class="bioma-nav-left">
         <a href="/" class="bioma-brand">
             <span>bioma</span>
-            <span class="bioma-brand-leaf">🍃</span>
+            <span class="bioma-brand-leaf" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
+                    <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+                </svg>
+            </span>
         </a>
 
         <nav class="bioma-nav-links">
             <NavLink class="bioma-nav-link" href="" Match="NavLinkMatch.All">Explorateur GBIF &amp; iNaturalist</NavLink>
+            <NavLink class="bioma-nav-link" href="profil">Utilisateurs &amp; Profil (US 1-6)</NavLink>
         </nav>
     </div>
 
     <div class="bioma-user-bar">
-        <div class="bioma-currency-pill" title="Architecture simplifiée">
-            <span>API GBIF + iNaturalist · Back-Office C#</span>
-        </div>
+        @if (Session.CurrentProfile is not null)
+        {
+            <a href="/profil" class="ai-capsule-pill" style="text-decoration: none;">
+                <svg class="ai-capsule-icon user-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                </svg>
+                <span class="ai-capsule-text">@Session.CurrentProfile.Username</span>
+                <span class="ai-capsule-sep">|</span>
+                <span class="ai-capsule-accent">@Session.CurrentProfile.Stats.TotalCardsOwned carte(s)</span>
+            </a>
+            <a href="/profil" title="Voir mon profil">
+                <img src="@Session.CurrentProfile.AvatarUrl"
+                     alt="@Session.CurrentProfile.Username"
+                     class="bioma-avatar"
+                     style="object-fit: cover;" />
+            </a>
+        }
+        else
+        {
+            <a href="/profil" class="ai-capsule-pill" style="text-decoration: none;">
+                <svg class="ai-capsule-icon cloud-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="7.5" cy="15.5" r="5.5"/>
+                    <path d="m21 2-9.6 9.6"/>
+                    <path d="m15.5 7.5 3 3"/>
+                </svg>
+                <span class="ai-capsule-text">Connexion</span>
+                <span class="ai-capsule-sep">|</span>
+                <span class="ai-capsule-accent">Profil</span>
+            </a>
+        }
     </div>
 </header>
 
 <main class="bioma-container">
     @Body
 </main>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Session.OnChange += HandleSessionChanged;
+    }
+
+    private void HandleSessionChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && Session.CurrentProfile is null)
+        {
+            try
+            {
+                var storedId = await LocalStorage.GetAsync<Guid>("bioma_cloud_player_id");
+                if (storedId.Success && storedId.Value != Guid.Empty)
+                {
+                    var restoredProfile = await UserService.GetProfileWithInventoryAsync(storedId.Value);
+                    if (restoredProfile is not null)
+                    {
+                        Session.SetSession(restoredProfile);
+                        await InvokeAsync(StateHasChanged);
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore si le stockage navigateur n'est pas encore accessible
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        Session.OnChange -= HandleSessionChanged;
+    }
+}

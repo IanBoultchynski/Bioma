@@ -1,0 +1,38 @@
+{
+  "CloudBackupToken": "CLOUD-50EE46528F",
+  "SyncedAt": "2026-11-09T13:46:46.0966648+00:00",
+  "PlayerId": "8420138e-f226-4eaa-bbe9-444b60805ac8",
+  "Username": "ExplorateurReel",
+  "Email": "reel@bioma.fr",
+  "PasswordHash": "PBKDF2$oEmiMjQN46\u002BntkugnIGxRA==$bBgaD51tgJzXkMwYlQQy\u002BhqkOEHxvpQTvvteovUjUJw=",
+  "AvatarUrl": "https://example.com/custom-avatar.png",
+  "Level": 1,
+  "ExperiencePoints": 0,
+  "VirtualCurrency": 0,
+  "Energy": 100,
+  "EloRating": 1000,
+  "TotalVictories": 0,
+  "TotalDefeats": 0,
+  "CreatedAt": "2026-11-09T13:46:46.0070811+00:00",
+  "Cards": [
+    {
+      "PlayerCardId": "f8702150-574b-458e-9fd7-0627109fe31a",
+      "SpeciesCardId": "b9484fc4-5500-4815-a4f7-2c56b1e68f8e",
+      "CommonName": "Lynx bor\u00E9al",
+      "ScientificName": "Lynx lynx",
+      "Family": "Felidae",
+      "ImageUrl": "https://images.unsplash.com/photo-1546182990-dffeafbe841d?auto=format\u0026fit=crop\u0026w=600\u0026q=80",
+      "CustomNickname": "Lynx bor\u00E9al",
+      "Level": 1,
+      "ExperiencePoints": 0,
+      "IsInActiveDeck": true,
+      "CurrentAttack": 30,
+      "CurrentDefense": 30,
+      "CurrentSpeed": 30,
+      "WeightKg": 10,
+      "PolaroidFinish": "Standard",
+      "ObtainedVia": "GBIF",
+      "AcquiredAt": "2026-11-09T13:46:46.0339383+00:00"
+    }
+  ]
+}

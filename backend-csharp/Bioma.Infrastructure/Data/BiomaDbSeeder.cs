@@ -2,6 +2,8 @@ using Bioma.Domain.Entities;
 using Bioma.Domain.Enums;
 using Bioma.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Bioma.Infrastructure.Data;
 
@@ -16,8 +18,62 @@ public static class BiomaDbSeeder
 
     public static async Task SeedAsync(BiomaDbContext db)
     {
-        // 1. Génération automatique du schéma relationnel
-        await db.Database.EnsureCreatedAsync();
+        // 1. Génération automatique du schéma relationnel (support Supabase & SQLite)
+        var databaseCreator = db.Database.GetService<IDatabaseCreator>() as IRelationalDatabaseCreator;
+        bool needCreate = false;
+
+        try
+        {
+            var conn = db.Database.GetDbConnection();
+            if (conn.State != System.Data.ConnectionState.Open)
+            {
+                await conn.OpenAsync();
+            }
+            using var cmd = conn.CreateCommand();
+            bool isPg = db.Database.ProviderName?.Contains("Npgsql") == true;
+            cmd.CommandText = isPg
+                ? "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'SpeciesCards');"
+                : "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='SpeciesCards';";
+            var result = await cmd.ExecuteScalarAsync();
+            if (result is bool b)
+            {
+                needCreate = !b;
+            }
+            else if (result != null && long.TryParse(result.ToString(), out var count))
+            {
+                needCreate = count == 0;
+            }
+            else
+            {
+                needCreate = true;
+            }
+        }
+        catch
+        {
+            needCreate = true;
+        }
+
+        if (needCreate)
+        {
+            Console.WriteLine("[Bioma] Initialisation du schéma relationnel (Création des tables)...");
+            if (databaseCreator != null)
+            {
+                try
+                {
+                    await databaseCreator.CreateTablesAsync();
+                    Console.WriteLine("[Bioma] Schéma de tables créé avec succès !");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Bioma] CreateTablesAsync a renvoyé : {ex.Message}. Tentative EnsureCreatedAsync...");
+                    await db.Database.EnsureCreatedAsync();
+                }
+            }
+            else
+            {
+                await db.Database.EnsureCreatedAsync();
+            }
+        }
 
         // 2. Starter-pack d'espèces scientifiques réelles (GBIF / iNaturalist)
         var fox = await db.Cards.FirstOrDefaultAsync(c => c.ScientificName == "Vulpes vulpes");

@@ -100,27 +100,31 @@ public static class BiomaDbConfiguration
             var originalUser = builder.Username ?? "postgres";
             var poolerUser = originalUser.Contains('.') ? originalUser : $"{originalUser}.{projectRef}";
 
+            var clusters = new[] { "aws-1", "aws-0" };
             var regions = new[] { "eu-west-3", "eu-central-1", "eu-west-1" };
-            foreach (var region in regions)
+            foreach (var cluster in clusters)
             {
-                foreach (var port in new[] { 5432, 6543 })
+                foreach (var region in regions)
                 {
-                    var candidate = $"Host=aws-0-{region}.pooler.supabase.com;Port={port};Database={builder.Database ?? "postgres"};Username={poolerUser};Password={builder.Password};SSL Mode=Require;Trust Server Certificate=true;Timeout={timeoutSeconds};Command Timeout=15;";
-                    try
+                    foreach (var port in new[] { 5432, 6543 })
                     {
-                        var probeBuilder = new NpgsqlConnectionStringBuilder(candidate)
+                        var candidate = $"Host={cluster}-{region}.pooler.supabase.com;Port={port};Database={builder.Database ?? "postgres"};Username={poolerUser};Password={builder.Password};SSL Mode=Require;Trust Server Certificate=true;Timeout={timeoutSeconds};Command Timeout=15;";
+                        try
                         {
-                            Timeout = timeoutSeconds,
-                            CommandTimeout = timeoutSeconds
-                        };
-                        using var conn = new NpgsqlConnection(probeBuilder.ConnectionString);
-                        conn.Open();
-                        Console.WriteLine($"[Bioma] Passerelle IPv4 Supabase Pooler ({region}:{port}) connectée avec succès !");
-                        return candidate;
-                    }
-                    catch
-                    {
-                        // Ignore et teste la région/port suivant
+                            var probeBuilder = new NpgsqlConnectionStringBuilder(candidate)
+                            {
+                                Timeout = timeoutSeconds,
+                                CommandTimeout = timeoutSeconds
+                            };
+                            using var conn = new NpgsqlConnection(probeBuilder.ConnectionString);
+                            conn.Open();
+                            Console.WriteLine($"[Bioma] Passerelle IPv4 Supabase Pooler ({cluster}-{region}:{port}) connectée avec succès !");
+                            return candidate;
+                        }
+                        catch
+                        {
+                            // Ignore et teste le cluster/région/port suivant
+                        }
                     }
                 }
             }

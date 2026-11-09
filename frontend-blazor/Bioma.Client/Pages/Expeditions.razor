@@ -1,0 +1,238 @@
+@page "/expeditions"
+@using Bioma.Application.DTOs
+@using Bioma.Application.Interfaces
+@using Bioma.Domain.Entities
+@inject IBiomaGameService GameService
+
+<div class="bioma-page-header">
+    <div>
+        <h1 class="bioma-title">Expéditions</h1>
+        <p class="bioma-subtitle">Choisissez une espèce, une région (cluster DBSCAN) et un animal pour l'expédition.</p>
+    </div>
+
+    <div class="bioma-stat-counter">
+        <span class="bioma-currency-pill" style="font-size: 0.78rem;">
+            🌍 Moteur Spatio-Temporel : Scikit-Learn DBSCAN + Pandas (GBIF / iNaturalist)
+        </span>
+    </div>
+</div>
+
+<div class="refuge-grid">
+    <!-- Globe 3D Interactif avec Hotspots DBSCAN (Figma Page 18) -->
+    <div class="globe-viewport">
+        <svg viewBox="0 0 420 420" style="width: 340px; height: 340px; filter: drop-shadow(0 18px 36px rgba(0,0,0,0.55));">
+            <defs>
+                <radialGradient id="globeOcean" cx="35%" cy="30%" r="70%">
+                    <stop offset="0%" stop-color="#35684D" />
+                    <stop offset="60%" stop-color="#1E412F" />
+                    <stop offset="100%" stop-color="#10251A" />
+                </radialGradient>
+                <radialGradient id="hotspotGlow" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stop-color="#FFE082" stop-opacity="0.95" />
+                    <stop offset="50%" stop-color="#6CC089" stop-opacity="0.55" />
+                    <stop offset="100%" stop-color="#6CC089" stop-opacity="0" />
+                </radialGradient>
+            </defs>
+
+            <!-- Sphère océanique 3D -->
+            <circle cx="210" cy="210" r="185" fill="url(#globeOcean)" stroke="rgba(230,222,200,0.28)" stroke-width="2" />
+
+            <!-- Méridiens et Parallèles 3D -->
+            <ellipse cx="210" cy="210" rx="185" ry="70" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+            <ellipse cx="210" cy="210" rx="185" ry="135" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+            <ellipse cx="210" cy="210" rx="70" ry="185" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+            <ellipse cx="210" cy="210" rx="135" ry="185" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+
+            <!-- Masses continentales stylisées (Europe, Afrique, Amériques) -->
+            <path d="M175,75 C195,65 235,70 265,92 C288,110 295,145 270,168 C242,182 205,175 182,155 C165,138 160,95 175,75 Z"
+                  fill="#4E8363" opacity="0.72" />
+            <path d="M195,185 C230,182 268,205 272,250 C275,295 248,348 220,355 C195,350 182,300 178,255 C175,220 180,192 195,185 Z"
+                  fill="#447558" opacity="0.68" />
+            <path d="M62,115 C95,95 130,118 135,158 C138,195 112,215 95,245 C82,272 95,315 78,335 C55,312 45,255 52,195 C55,155 48,128 62,115 Z"
+                  fill="#3E6E52" opacity="0.62" />
+
+            <!-- Hotspots lumineux générés par DBSCAN (User Story #17) -->
+            @for (int i = 0; i < _hotspots.Count; i++)
+            {
+                var hs = _hotspots[i];
+                // Projection des coordonnées sur l'hémisphère visible du Globe 3D
+                int cx = 205 + (int)(hs.Longitude * 2.8) + (i * 14 - 14);
+                int cy = 145 - (int)((hs.Latitude - 45.0) * 3.2) + (i * 12 - 10);
+                bool isSelected = _selectedRegion == hs.RegionName;
+
+                <g class="hotspot-pulse" @onclick="() => SelectHotspot(hs)">
+                    <circle cx="@cx" cy="@cy" r="@(isSelected ? 28 : 20)" fill="url(#hotspotGlow)" />
+                    <circle cx="@cx" cy="@cy" r="@(isSelected ? 7 : 5)"
+                            fill="@(isSelected ? "#FFE082" : "#E6DEC8")"
+                            stroke="#14281D" stroke-width="2" />
+                </g>
+            }
+        </svg>
+
+        <div style="width: 100%; margin-top: 1rem;">
+            <h3 style="font-family: var(--font-serif); font-size: 1.4rem;">
+                @(_selectedHotspot != null ? _selectedHotspot.RegionName : "Choisissez une destination")
+            </h3>
+            <p style="font-size: 0.84rem; color: var(--text-muted);">
+                @if (_selectedHotspot != null)
+                {
+                    <span>
+                        Cluster DBSCAN (@_selectedHotspot.Latitude.ToString("F2")°N, @_selectedHotspot.Longitude.ToString("F2")°E) ·
+                        Rayon @_selectedHotspot.RadiusKm km · Saison optimale : @_selectedHotspot.OptimalSeason
+                    </span>
+                }
+                else
+                {
+                    <span>Sélectionnez une région lumineuse sur le globe 3D pour préparer une expédition.</span>
+                }
+            </p>
+        </div>
+    </div>
+
+    <!-- Formulaire de préparation à droite (Figma Page 18) -->
+    <div class="bioma-panel">
+        <h2 style="font-family: var(--font-serif); font-size: 1.65rem; margin-bottom: 1.15rem;">Préparer une expédition</h2>
+
+        <div style="margin-bottom: 1rem;">
+            <label style="font-size: 0.78rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Espèce à rechercher (Filtre API GBIF taxonKey=1)</label>
+            <select class="bioma-select" value="@_selectedSpecies" @onchange="OnSpeciesChanged">
+                <option value="Alcedo atthis">Martin-pêcheur d'Europe (Alcedo atthis)</option>
+                <option value="Vulpes vulpes">Renard roux (Vulpes vulpes)</option>
+                <option value="Lynx lynx">Lynx roux (Lynx lynx)</option>
+            </select>
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+            <label style="font-size: 0.78rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Région (Hotspot DBSCAN)</label>
+            <select class="bioma-select" @bind="_selectedRegion">
+                @foreach (var hs in _hotspots)
+                {
+                    <option value="@hs.RegionName">@hs.RegionName (Densité @(Math.Round(hs.DensityScore * 100))% · @hs.OptimalSeason)</option>
+                }
+            </select>
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+            <label style="font-size: 0.78rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Animal de l'expédition</label>
+            <select class="bioma-select" @bind="_selectedCompanionId">
+                @foreach (var card in _collection.Where(c => !c.IsInExpedition))
+                {
+                    <option value="@card.Id">@card.Name #@card.SpecimenNumber (@card.StageLabel · PV @card.Hp)</option>
+                }
+            </select>
+        </div>
+
+        <div style="margin-bottom: 1.15rem;">
+            <label style="font-size: 0.78rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Durée d'exploration (24h à 72h)</label>
+            <select class="bioma-select" @bind="_durationHours">
+                <option value="24">24 heures (Récompense standard)</option>
+                <option value="48">48 heures (+50% chances espèce rare)</option>
+                <option value="72">72 heures (Exploration approfondie)</option>
+            </select>
+        </div>
+
+        <!-- Encadré d'analyse spatio-temporelle (Figma Page 18) -->
+        <div style="background: rgba(12, 26, 18, 0.55); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 0.9rem 1rem; margin-bottom: 1.25rem;">
+            <div style="font-weight: 600; font-size: 0.86rem; margin-bottom: 0.25rem; color: var(--accent-sand);">
+                Analyse Spatio-Temporelle (DBSCAN &amp; Saisonnalité)
+            </div>
+            <p style="font-size: 0.78rem; color: var(--text-muted);">
+                Les coordonnées GPS issues de GBIF et iNaturalist ont été nettoyées via Pandas (suppression des valeurs aberrantes)
+                puis regroupées par densité spatiale DBSCAN. Fenêtre saisonnière : <strong>@(_selectedHotspot?.OptimalSeason ?? "Printemps · Été")</strong>.
+            </p>
+        </div>
+
+        <button class="btn-sand" @onclick="LaunchNewExpedition">
+            <span>Préparer le départ</span>
+            <span>→</span>
+        </button>
+    </div>
+</div>
+
+<!-- Expéditions actives en cours (User Story #20 & #21) -->
+@if (_activeExpeditions.Count > 0)
+{
+    <section class="bioma-panel" style="margin-top: 1.75rem;">
+        <h3 style="font-family: var(--font-serif); font-size: 1.4rem; margin-bottom: 1rem;">
+            Expéditions en cours (@_activeExpeditions.Count)
+        </h3>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem;">
+            @foreach (var exp in _activeExpeditions)
+            {
+                <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 0.74rem; color: var(--accent-sand);">@exp.RegionName · @exp.DurationHours h</div>
+                        <div style="font-family: var(--font-serif); font-size: 1.15rem;">Recherche : @exp.TargetSpeciesName</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">Compagnon : @exp.CompanionName · Récompense : +@exp.RewardFeuilles 🍃 / +@exp.RewardXp XP</div>
+                    </div>
+
+                    <button class="btn-outline" style="padding: 0.45rem 0.8rem; font-size: 0.78rem;" @onclick="() => CancelActiveExpedition(exp.Id)">
+                        Annuler
+                    </button>
+                </div>
+            }
+        </div>
+    </section>
+}
+
+@code {
+    private List<GeoHotspotZone> _hotspots = new();
+    private List<CardDto> _collection = new();
+    private List<Expedition> _activeExpeditions = new();
+    private GeoHotspotZone? _selectedHotspot;
+    private string _selectedSpecies = "Alcedo atthis";
+    private string _selectedRegion = "Vallée de la Loire";
+    private Guid _selectedCompanionId;
+    private int _durationHours = 24;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _collection = await GameService.GetPlayerCollectionAsync();
+        _selectedCompanionId = _collection.FirstOrDefault()?.Id ?? Guid.Empty;
+        await LoadHotspotsForSpecies(_selectedSpecies);
+        _activeExpeditions = await GameService.GetPlayerExpeditionsAsync();
+    }
+
+    private async Task LoadHotspotsForSpecies(string scientificName)
+    {
+        _hotspots = await GameService.GetHotspotsForSpeciesAsync(scientificName);
+        _selectedHotspot = _hotspots.FirstOrDefault();
+        if (_selectedHotspot != null)
+        {
+            _selectedRegion = _selectedHotspot.RegionName;
+        }
+    }
+
+    private async Task OnSpeciesChanged(ChangeEventArgs e)
+    {
+        _selectedSpecies = e.Value?.ToString() ?? "Alcedo atthis";
+        await LoadHotspotsForSpecies(_selectedSpecies);
+    }
+
+    private void SelectHotspot(GeoHotspotZone hs)
+    {
+        _selectedHotspot = hs;
+        _selectedRegion = hs.RegionName;
+    }
+
+    private async Task LaunchNewExpedition()
+    {
+        await GameService.LaunchExpeditionAsync(new LaunchExpeditionRequestDto(
+            Guid.Empty,
+            _selectedCompanionId,
+            _selectedSpecies,
+            _selectedRegion,
+            _durationHours
+        ));
+        _activeExpeditions = await GameService.GetPlayerExpeditionsAsync();
+        _collection = await GameService.GetPlayerCollectionAsync();
+    }
+
+    private async Task CancelActiveExpedition(Guid expeditionId)
+    {
+        await GameService.CancelExpeditionAsync(expeditionId);
+        _activeExpeditions = await GameService.GetPlayerExpeditionsAsync();
+        _collection = await GameService.GetPlayerCollectionAsync();
+    }
+}

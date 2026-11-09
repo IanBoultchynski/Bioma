@@ -1,0 +1,47 @@
+@inherits LayoutComponentBase
+@using Bioma.Application.DTOs
+@using Bioma.Application.Interfaces
+@inject IBiomaGameService GameService
+
+<header class="bioma-navbar">
+    <div class="bioma-nav-left">
+        <a href="/refuge" class="bioma-brand">
+            <span>bioma</span>
+            <span class="bioma-brand-leaf">🍃</span>
+        </a>
+
+        <nav class="bioma-nav-links">
+            <NavLink class="bioma-nav-link" href="refuge" Match="NavLinkMatch.All">Refuge</NavLink>
+            <NavLink class="bioma-nav-link" href="tirages">Tirages</NavLink>
+            <NavLink class="bioma-nav-link" href="biomes">Mes biomes</NavLink>
+            <NavLink class="bioma-nav-link" href="collection">Collection</NavLink>
+            <NavLink class="bioma-nav-link" href="quiz">Jouer ▾</NavLink>
+            <NavLink class="bioma-nav-link" href="expeditions">Explorer ▾</NavLink>
+            <NavLink class="bioma-nav-link" href="auctions">Communauté ▾</NavLink>
+            <NavLink class="bioma-nav-link" href="laboratoire">Laboratoire IA</NavLink>
+        </nav>
+    </div>
+
+    <div class="bioma-user-bar">
+        <div class="bioma-currency-pill" title="Monnaie virtuelle (Feuilles)">
+            <span style="font-size: 0.72rem; opacity: 0.8;">🧭</span>
+            <span>@(_profile?.FeuillesCurrency ?? 1240)</span>
+        </div>
+        <div class="bioma-avatar" title="Profil : @(_profile?.Pseudo ?? "Camille")">
+            @(_profile?.AvatarInitials ?? "C")
+        </div>
+    </div>
+</header>
+
+<main class="bioma-container">
+    @Body
+</main>
+
+@code {
+    private PlayerProfileDto? _profile;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _profile = await GameService.GetPlayerProfileAsync();
+    }
+}

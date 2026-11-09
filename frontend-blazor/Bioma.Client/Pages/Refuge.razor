@@ -1,0 +1,150 @@
+@page "/"
+@page "/refuge"
+@using Bioma.Application.DTOs
+@using Bioma.Application.Interfaces
+@using Bioma.Domain.Entities
+@inject IBiomaGameService GameService
+@inject NavigationManager Nav
+
+@if (_profile != null)
+{
+    <div class="bioma-page-header">
+        <div>
+            <h1 class="bioma-title">Votre refuge</h1>
+            <p class="bioma-subtitle">Bonjour @_profile.Pseudo. Ouvrez des packs, gérez vos cartes et aménagez vos biomes.</p>
+        </div>
+
+        <div class="bioma-stat-counter">
+            <span class="bioma-stat-number">4</span>
+            <div style="text-align: left; font-size: 0.74rem; color: var(--figma-text-soft); line-height: 1.35;">
+                <div>espèces · @_profile.TotalSpecimensCount spécimens</div>
+                <a href="/collection" style="color: var(--figma-text); font-weight: 500;">Votre collection →</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="refuge-grid">
+        <!-- Colonne gauche : Pack de cartes (Figma Page 15) -->
+        <section>
+            <div class="figma-section-header">
+                <h2 class="figma-section-title">Pack de cartes</h2>
+                <a href="/tirages" class="figma-section-link" style="letter-spacing: 0.08em; text-transform: uppercase;">TIRAGES</a>
+            </div>
+
+            <div style="display: flex; gap: 1.85rem; align-items: flex-start; padding-top: 0.5rem;">
+                <!-- Booster Pack Cover 3D incliné -->
+                <div class="booster-pack-card" @onclick='() => Nav.NavigateTo("/tirages")' style="cursor: pointer;">
+                    <div>
+                        <div style="font-family: var(--font-serif); font-size: 1.35rem; font-weight: 700; color: var(--figma-text);">bioma</div>
+                        <div style="font-size: 0.52rem; letter-spacing: 0.14em; color: var(--figma-text-muted); margin-top: 2px;">COLLECTION BIODIVERSITÉ</div>
+                    </div>
+
+                    <div style="width: 92px; height: 92px; border-radius: 50%; overflow: hidden; border: 1px solid rgba(229,222,201,0.4); box-shadow: 0 6px 16px rgba(0,0,0,0.35);">
+                        <img src="https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?auto=format&fit=crop&w=400&q=80"
+                             alt="Échos du vivant" style="width: 100%; height: 100%; object-fit: cover;" />
+                    </div>
+
+                    <div>
+                        <div style="font-family: var(--font-serif); font-size: 1.2rem; line-height: 1.1; color: var(--figma-text);">Échos<br />du vivant</div>
+                        <div style="font-size: 0.52rem; letter-spacing: 0.1em; color: var(--figma-text-muted); margin-top: 0.45rem;">FAUNE &amp; FLORE<br />3 POLAROÏDS</div>
+                    </div>
+                </div>
+
+                <!-- Détails du Pack -->
+                <div style="flex: 1; padding-top: 0.35rem;">
+                    <div style="font-size: 0.64rem; letter-spacing: 0.12em; color: var(--figma-text-muted); margin-bottom: 0.25rem; text-transform: uppercase;">
+                        PACK MIXTE
+                    </div>
+                    <h3 style="font-family: var(--font-serif); font-size: 1.55rem; font-weight: 500; margin-bottom: 0.35rem;">
+                        Échos du vivant
+                    </h3>
+                    <p style="font-size: 0.8rem; color: var(--figma-text-soft); margin-bottom: 1.1rem; line-height: 1.4;">
+                        Animaux et plantes<br />3 cartes aléatoires
+                    </p>
+
+                    <div style="margin-bottom: 0.9rem; display: flex; align-items: baseline; gap: 0.4rem;">
+                        <span style="font-family: var(--font-serif); font-size: 1.65rem; font-weight: 500;">180</span>
+                        <span style="font-size: 0.74rem; color: var(--figma-text-muted);">monnaie de jeu</span>
+                    </div>
+
+                    <button class="btn-sand" style="max-width: 245px;" @onclick='() => Nav.NavigateTo("/tirages")'>
+                        <span>Ouvrir un pack</span>
+                        <span>→</span>
+                    </button>
+
+                    <div style="margin-top: 0.75rem; margin-bottom: 1.25rem;">
+                        <a href="/tirages" style="font-size: 0.76rem; color: var(--figma-text-soft);">Raretés &amp; probabilités →</a>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 0.55rem; padding-top: 0.85rem; border-top: 1px solid var(--figma-border);">
+                        @foreach (var sample in _cards.Take(2))
+                        {
+                            <div style="background: var(--polaroid-bg); padding: 2px 2px 5px; border-radius: 2px; width: 34px; box-shadow: 0 3px 8px rgba(0,0,0,0.3);">
+                                <img src="@sample.ImageUrl" alt="@sample.Name"
+                                     style="width: 30px; height: 26px; object-fit: cover; display: block;" />
+                            </div>
+                        }
+                        <div style="font-size: 0.68rem; color: var(--figma-text-muted); line-height: 1.3;">
+                            <div style="color: var(--figma-text-soft);">Cartes issues de ce paquet</div>
+                            <div>2 cartes ajoutées à votre collection</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Colonne droite : Votre biome actif (Figma Page 15) -->
+        <section>
+            <div class="figma-section-header">
+                <h2 class="figma-section-title">Votre biome actif</h2>
+                <a href="/biomes" class="figma-section-link">Mes biomes →</a>
+            </div>
+
+            @if (_activeBiome != null)
+            {
+                <div class="biome-card-wrapper">
+                    <div class="biome-stage" style="background-image: linear-gradient(180deg, rgba(15,32,22,0.08) 0%, rgba(15,32,22,0.58) 100%), url('@_activeBiome.BackgroundImageUrl');">
+                        @foreach (var cardId in _activeBiome.ExposedCardIds)
+                        {
+                            var exposed = _cards.FirstOrDefault(c => c.Id == cardId);
+                            if (exposed != null)
+                            {
+                                <div class="biome-pedestal">
+                                    <PolaroidCard Card="exposed" Compact="true" OnSelect='(_) => Nav.NavigateTo("/biomes")' />
+                                </div>
+                            }
+                        }
+                    </div>
+
+                    <div class="biome-card-footer">
+                        <div>
+                            <h3 style="font-family: var(--font-serif); font-size: 1.25rem; font-weight: 500;">@_activeBiome.Name</h3>
+                            <p style="font-size: 0.74rem; color: var(--figma-text-muted);">
+                                @_activeBiome.ExposedCardIds.Count cartes exposées · @_activeBiome.BiomeType
+                            </p>
+                        </div>
+
+                        <button class="btn-sand" style="width: auto; min-width: 195px;" @onclick='() => Nav.NavigateTo("/biomes")'>
+                            <span>Entrer dans ma vitrine</span>
+                            <span>→</span>
+                        </button>
+                    </div>
+                </div>
+            }
+        </section>
+    </div>
+}
+
+@code {
+    private PlayerProfileDto? _profile;
+    private List<CardDto> _cards = new();
+    private BiomeShowcase? _activeBiome;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _profile = await GameService.GetPlayerProfileAsync();
+        _cards = await GameService.GetPlayerCollectionAsync();
+        var biomes = await GameService.GetPlayerBiomesAsync();
+        _activeBiome = biomes.FirstOrDefault(b => b.IsActive) ?? biomes.FirstOrDefault();
+    }
+}

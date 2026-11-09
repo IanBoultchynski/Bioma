@@ -1,0 +1,156 @@
+@page "/tirages"
+@using Bioma.Application.DTOs
+@using Bioma.Application.Interfaces
+@inject IBiomaGameService GameService
+
+@if (_profile != null)
+{
+    <div class="bioma-page-header">
+        <div>
+            <h1 class="bioma-title">Ouvrir un pack</h1>
+            <p class="bioma-subtitle">Échos du vivant · pack mixte animaux &amp; plantes</p>
+        </div>
+
+        <div class="bioma-stat-counter">
+            <div>
+                <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Votre solde</div>
+                <div>
+                    <span class="bioma-stat-number">@_profile.FeuillesCurrency</span>
+                    <span style="font-size: 0.85rem; color: var(--text-muted); margin-left: 0.35rem;">monnaie de jeu</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="refuge-grid">
+        <!-- Visuel du Pack à gauche (Figma p.15) -->
+        <div class="bioma-panel" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 450px; text-align: center;">
+            <div style="font-size: 0.72rem; letter-spacing: 0.14em; color: var(--text-muted); margin-bottom: 1.4rem;">
+                BIOMA · COLLECTION BIODIVERSITÉ
+            </div>
+
+            <div class="booster-pack-card" style="width: 245px; height: 345px; margin-bottom: 1.75rem;">
+                <div style="font-size: 0.65rem; letter-spacing: 0.12em; color: var(--text-muted);">COLLECTION BIODIVERSITÉ</div>
+                <div style="font-family: var(--font-serif); font-size: 1.75rem; font-weight: 700;">bioma</div>
+                <div style="width: 110px; height: 110px; border-radius: 50%; overflow: hidden; border: 2px solid var(--border-highlight);">
+                    <img src="https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?auto=format&fit=crop&w=400&q=80"
+                         alt="Échos du vivant" style="width: 100%; height: 100%; object-fit: cover;" />
+                </div>
+                <div>
+                    <div style="font-family: var(--font-serif); font-size: 1.4rem; line-height: 1.15;">Échos<br />du vivant</div>
+                    <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 0.4rem;">FAUNE &amp; FLORE<br />3 POLAROÏDS</div>
+                </div>
+            </div>
+
+            <div style="font-family: var(--font-serif); font-size: 1.2rem;">Ouvrez un pack pour obtenir 3 cartes.</div>
+            <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.25rem;">3 cartes d'animaux ou de plantes</div>
+        </div>
+
+        <!-- Détails et Probabilités à droite (Figma p.15) -->
+        <div class="bioma-panel">
+            <h2 style="font-family: var(--font-serif); font-size: 1.85rem; margin-bottom: 0.5rem;">Échos du vivant</h2>
+            <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+                Le pack contient 3 cartes aléatoires d'animaux ou de plantes.<br />
+                Les 3 cartes obtenues sont ajoutées à votre collection.
+            </p>
+
+            <div style="border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); padding: 0.85rem 0; margin-bottom: 1.25rem; font-size: 0.88rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.45rem;">
+                    <span style="color: var(--text-muted);">Contenu</span>
+                    <span>3 cartes · animaux &amp; plantes</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-muted);">Prix du pack</span>
+                    <span>180 unités virtuelles</span>
+                </div>
+            </div>
+
+            <h3 style="font-family: var(--font-serif); font-size: 1.15rem; margin-bottom: 0.75rem;">Les raretés du pack</h3>
+            <div style="font-size: 0.88rem; margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; padding: 0.4rem 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                    <span>I Commune</span>
+                    <span style="font-weight: 600;">65 %</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 0.4rem 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                    <span>II Peu commune</span>
+                    <span style="font-weight: 600;">28 %</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 0.4rem 0;">
+                    <span style="color: var(--accent-gold);">III Rare (indexé sur rareté GBIF)</span>
+                    <span style="font-weight: 600; color: var(--accent-gold);">7 %</span>
+                </div>
+            </div>
+
+            <p style="font-size: 0.76rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+                Probabilités par carte. Une espèce déjà découverte vous apporte un nouvel exemplaire, avec sa propre progression.
+            </p>
+
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <div style="background: rgba(220, 75, 75, 0.2); border: 1px solid rgba(220,75,75,0.5); padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.85rem;">
+                    @_errorMessage
+                </div>
+            }
+
+            <div style="display: flex; gap: 0.8rem;">
+                <button class="btn-sand" @onclick="() => TriggerPackOpening(1)" disabled="@(_profile.FeuillesCurrency < 180)">
+                    <span>Ouvrir pour 180</span>
+                    <span>→</span>
+                </button>
+                <button class="btn-outline" style="white-space: nowrap;" @onclick="() => TriggerPackOpening(3)" disabled="@(_profile.FeuillesCurrency < 540)">
+                    <span>Tirage ×3 (540)</span>
+                </button>
+            </div>
+
+            <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 0.65rem;">
+                Monnaie gagnée via les quiz, expéditions et enchères. Aucun achat en argent réel.
+            </div>
+        </div>
+    </div>
+
+    @if (_drawnCards.Count > 0)
+    {
+        <section class="bioma-panel" style="margin-top: 1.75rem; border-color: var(--border-highlight);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.15rem;">
+                <div>
+                    <div style="font-size: 0.75rem; letter-spacing: 0.1em; color: var(--accent-gold);">RÉVÉLATION POLAROÏD</div>
+                    <h3 style="font-family: var(--font-serif); font-size: 1.5rem;">Nouvelles cartes ajoutées à votre collection (@_drawnCards.Count)</h3>
+                </div>
+                <a href="/collection" class="btn-outline">Voir dans ma collection →</a>
+            </div>
+
+            <div class="polaroid-grid">
+                @foreach (var card in _drawnCards)
+                {
+                    <PolaroidCard Card="card" />
+                }
+            </div>
+        </section>
+    }
+}
+
+@code {
+    private PlayerProfileDto? _profile;
+    private List<CardDto> _drawnCards = new();
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _profile = await GameService.GetPlayerProfileAsync();
+    }
+
+    private async Task TriggerPackOpening(int count)
+    {
+        try
+        {
+            _errorMessage = null;
+            var result = await GameService.OpenPackAsync(_profile!.Id, count);
+            _drawnCards = result.DrawnCards;
+            _profile = await GameService.GetPlayerProfileAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+}

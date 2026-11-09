@@ -1,0 +1,245 @@
+@page "/collection"
+@using Bioma.Application.DTOs
+@using Bioma.Application.Interfaces
+@inject IBiomaGameService GameService
+@inject NavigationManager Nav
+
+<div class="bioma-page-header">
+    <div>
+        <h1 class="bioma-title">Ma collection</h1>
+        <p class="bioma-subtitle">Chaque exemplaire garde sa propre progression scientifique et son état d'évolution.</p>
+    </div>
+
+    <div class="bioma-stat-counter">
+        <span class="bioma-stat-number">@_allCards.Count</span>
+        <div style="text-align: left; font-size: 0.8rem; color: var(--text-muted);">
+            <div>spécimens</div>
+            <div>@_allCards.Where(c => !c.IsHybrid).Select(c => c.ScientificSubtitle).Distinct().Count() espèces réelles · @_allCards.Count(c => c.IsHybrid) hybride fictif</div>
+        </div>
+    </div>
+</div>
+
+<!-- Barre de filtres avancés (Figma Page 17) -->
+<div class="filter-bar">
+    <div>
+        <label style="font-size: 0.74rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Rechercher</label>
+        <input class="bioma-input" placeholder="Espèce, nom scientifique, identifiant..." @bind="_searchQuery" @bind:event="oninput" />
+    </div>
+    <div>
+        <label style="font-size: 0.74rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Famille</label>
+        <select class="bioma-select" @bind="_selectedFamily">
+            <option value="">Toutes les familles</option>
+            @foreach (var fam in _allCards.Select(c => c.FamilyName).Distinct())
+            {
+                <option value="@fam">@fam</option>
+            }
+        </select>
+    </div>
+    <div>
+        <label style="font-size: 0.74rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Rareté</label>
+        <select class="bioma-select" @bind="_selectedRarity">
+            <option value="">Toutes les raretés</option>
+            <option value="Commune">Commune</option>
+            <option value="Peu commune">Peu commune</option>
+            <option value="Rare">Rare</option>
+        </select>
+    </div>
+    <div>
+        <label style="font-size: 0.74rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Trier</label>
+        <select class="bioma-select" @bind="_sortMode">
+            <option value="recent">Acquisition récente</option>
+            <option value="xp">Progression XP</option>
+            <option value="power">Attaque scientifique</option>
+        </select>
+    </div>
+    <button class="btn-outline" @onclick='() => Nav.NavigateTo("/laboratoire")'>
+        <span>Laboratoire</span>
+        <span>→</span>
+    </button>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center;">
+    <div class="pill-tabs">
+        @foreach (var tab in new[] { "Tout", "Animaux", "Plantes", "Hybrides", "Évolués" })
+        {
+            <button class="pill-tab @(_activeTab == tab ? "active" : "")" @onclick="() => _activeTab = tab">@tab</button>
+        }
+    </div>
+    <a href="/laboratoire" style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 1rem;">Mon deck de combat →</a>
+</div>
+
+<div class="collection-layout">
+    <!-- Grille Polaroïd (Gauche) -->
+    <div>
+        <div class="polaroid-grid">
+            @foreach (var card in FilteredCards)
+            {
+                <PolaroidCard Card="card"
+                              IsSelected="@(_selectedCard?.Id == card.Id)"
+                              OnSelect="(c) => _selectedCard = c" />
+            }
+        </div>
+        <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 1rem;">
+            @FilteredCards.Count() spécimen(s) sur @_allCards.Count · Progression XP indépendante par exemplaire.
+        </div>
+    </div>
+
+    <!-- Panneau d'inspection détaillée (Droite - Figma Page 17) -->
+    @if (_selectedCard != null)
+    {
+        <aside class="bioma-panel">
+            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 0.35rem;">
+                <span>SPÉCIMEN SÉLECTIONNÉ</span>
+                <span>#@_selectedCard.SpecimenNumber</span>
+            </div>
+
+            <h2 style="font-family: var(--font-serif); font-size: 1.7rem; line-height: 1.2;">@_selectedCard.Name</h2>
+            <div style="font-style: italic; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+                @_selectedCard.ScientificSubtitle
+            </div>
+
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                <span class="bioma-currency-pill" style="font-size: 0.76rem; padding: 0.2rem 0.65rem;">@_selectedCard.RarityLabel</span>
+                @if (_selectedCard.IsAdult)
+                {
+                    <span class="bioma-currency-pill" style="font-size: 0.76rem; padding: 0.2rem 0.65rem; border-color: var(--accent-gold); color: var(--accent-gold);">
+                        ★ Évolué (Adulte)
+                    </span>
+                }
+                @if (_selectedCard.IsHybrid)
+                {
+                    <span class="bioma-currency-pill" style="font-size: 0.76rem; padding: 0.2rem 0.65rem; border-color: #B497E7; color: #DECFF8;">
+                        IA Hybride
+                    </span>
+                }
+            </div>
+
+            <div style="display: flex; justify-content: space-between; font-size: 0.84rem;">
+                <span style="font-weight: 600;">@_selectedCard.StageLabel</span>
+                <span style="color: var(--text-muted);">@_selectedCard.CurrentXp / @_selectedCard.MaxXpForEvolution XP</span>
+            </div>
+            <div class="xp-bar-track">
+                <div class="xp-bar-fill" style="width: @(Math.Min(100, (_selectedCard.CurrentXp * 100) / Math.Max(1, _selectedCard.MaxXpForEvolution)))%;"></div>
+            </div>
+
+            <div style="font-size: 0.85rem; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); padding: 0.85rem 0; margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.4rem;">
+                    <span style="color: var(--text-muted);">Famille taxonomique</span>
+                    <span>@_selectedCard.FamilyName</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.4rem;">
+                    <span style="color: var(--text-muted);">Biome / Habitat</span>
+                    <span>@_selectedCard.HabitatName</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.4rem;">
+                    <span style="color: var(--text-muted);">Masse scientifique</span>
+                    <span>@_selectedCard.WeightKg kg</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.4rem;">
+                    <span style="color: var(--text-muted);">Indice de dangerosité</span>
+                    <span>@_selectedCard.DangerIndex / 10</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-muted);">Métriques de combat</span>
+                    <span style="font-weight: 600; color: var(--accent-sand);">PV @_selectedCard.Hp · ATK @_selectedCard.Attack · DEF @_selectedCard.Defense</span>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_statusFeedback))
+            {
+                <div style="background: rgba(108, 192, 137, 0.16); border: 1px solid rgba(108,192,137,0.4); padding: 0.6rem; border-radius: 8px; font-size: 0.8rem; margin-bottom: 0.85rem;">
+                    @_statusFeedback
+                </div>
+            }
+
+            <button class="btn-sand" style="margin-bottom: 0.65rem;" @onclick='() => Nav.NavigateTo("/biomes")'>
+                <span>Placer dans un biome</span>
+                <span>→</span>
+            </button>
+
+            <div style="display: flex; gap: 0.6rem;">
+                <button class="btn-outline" style="flex: 1;" @onclick="ApplyCareToSelected">
+                    <span>Soins virtuels (+180 XP)</span>
+                </button>
+                <button class="btn-outline" style="flex: 1;" @onclick="EvolveSelected">
+                    <span>Évoluer ★</span>
+                </button>
+            </div>
+        </aside>
+    }
+</div>
+
+@code {
+    private List<CardDto> _allCards = new();
+    private CardDto? _selectedCard;
+    private string _searchQuery = string.Empty;
+    private string _selectedFamily = string.Empty;
+    private string _selectedRarity = string.Empty;
+    private string _sortMode = "recent";
+    private string _activeTab = "Tout";
+    private string? _statusFeedback;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _allCards = await GameService.GetPlayerCollectionAsync();
+        _selectedCard = _allCards.FirstOrDefault();
+    }
+
+    private IEnumerable<CardDto> FilteredCards
+    {
+        get
+        {
+            var query = _allCards.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(_searchQuery))
+            {
+                query = query.Where(c =>
+                    c.Name.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                    c.ScientificSubtitle.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                    c.SpecimenNumber.ToString().Contains(_searchQuery));
+            }
+
+            if (!string.IsNullOrWhiteSpace(_selectedFamily))
+            {
+                query = query.Where(c => c.FamilyName == _selectedFamily);
+            }
+
+            if (!string.IsNullOrWhiteSpace(_selectedRarity))
+            {
+                query = query.Where(c => c.RarityLabel.Equals(_selectedRarity, StringComparison.OrdinalIgnoreCase));
+            }
+
+            query = _activeTab switch
+            {
+                "Animaux" => query.Where(c => !c.FamilyName.Contains("Dryopteridaceae") && !c.FamilyName.Contains("Fagaceae") && !c.IsHybrid),
+                "Plantes" => query.Where(c => c.FamilyName.Contains("Dryopteridaceae") || c.FamilyName.Contains("Fagaceae")),
+                "Hybrides" => query.Where(c => c.IsHybrid),
+                "Évolués" => query.Where(c => c.IsAdult),
+                _ => query
+            };
+
+            return _sortMode switch
+            {
+                "xp" => query.OrderByDescending(c => c.CurrentXp),
+                "power" => query.OrderByDescending(c => c.Attack + c.Hp),
+                _ => query
+            };
+        }
+    }
+
+    private async Task ApplyCareToSelected()
+    {
+        if (_selectedCard == null) return;
+        _selectedCard = await GameService.ApplyDailyCareAsync(_selectedCard.Id);
+        _allCards = await GameService.GetPlayerCollectionAsync();
+        _statusFeedback = $"Soins appliqués à {_selectedCard.Name} (+180 XP) !";
+    }
+
+    private async Task EvolveSelected()
+    {
+        if (_selectedCard == null) return;
+        _selectedCard = await GameService.EvolveCardAsync(_selectedCard.Id);
+        _allCards = await GameService.GetPlayerCollectionAsync();
+        _statusFeedback = $"{_selectedCard.Name} a atteint le stade Adulte avec finition Polaroïd dorée (+20% stats) !";
+    }
+}

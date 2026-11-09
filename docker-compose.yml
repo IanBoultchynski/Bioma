@@ -1,0 +1,63 @@
+version: '3.9'
+
+services:
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: bioma-postgres
+    environment:
+      POSTGRES_USER: bioma_user
+      POSTGRES_PASSWORD: bioma_password
+      POSTGRES_DB: bioma_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - bioma_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bioma_user -d bioma_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend-python:
+    build:
+      context: ./backend-python
+      dockerfile: Dockerfile
+    container_name: bioma-python-ai
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  backend-csharp:
+    build:
+      context: .
+      dockerfile: ./backend-csharp/Dockerfile
+    container_name: bioma-csharp-api
+    ports:
+      - "5080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__Postgres=Host=postgres-db;Port=5432;Database=bioma_db;Username=bioma_user;Password=bioma_password
+      - PythonAiService__BaseUrl=http://backend-python:8000
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      backend-python:
+        condition: service_started
+
+  frontend-blazor:
+    build:
+      context: .
+      dockerfile: ./frontend-blazor/Dockerfile
+    container_name: bioma-blazor-ui
+    ports:
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - PythonAiService__BaseUrl=http://backend-python:8000
+    depends_on:
+      - backend-csharp
+      - backend-python
+
+volumes:
+  bioma_pgdata:

@@ -1,0 +1,12 @@
+w:\bioma\backend-csharp\Bioma.Domain\bin\Debug\net9.0\Bioma.Domain.deps.json
+w:\bioma\backend-csharp\Bioma.Domain\bin\Debug\net9.0\Bioma.Domain.dll
+w:\bioma\backend-csharp\Bioma.Domain\bin\Debug\net9.0\Bioma.Domain.pdb
+w:\bioma\backend-csharp\Bioma.Domain\obj\Debug\net9.0\Bioma.Domain.GeneratedMSBuildEditorConfig.editorconfig
+w:\bioma\backend-csharp\Bioma.Domain\obj\Debug\net9.0\Bioma.Domain.AssemblyInfoInputs.cache
+w:\bioma\backend-csharp\Bioma.Domain\obj\Debug\net9.0\Bioma.Domain.AssemblyInfo.cs
+w:\bioma\backend-csharp\Bioma.Domain\obj\Debug\net9.0\Bioma.Domain.csproj.CoreCompileInputs.cache
+w:\bioma\backend-csharp\Bioma.Domain\obj\Debug\net9.0\Bioma.Domain.sourcelink.json
+w:\bioma\backend-csharp\Bioma.Domain\obj\Debug\net9.0\Bioma.Domain.dll
+w:\bioma\backend-csharp\Bioma.Domain\obj\Debug\net9.0\refint\Bioma.Domain.dll
+w:\bioma\backend-csharp\Bioma.Domain\obj\Debug\net9.0\Bioma.Domain.pdb
+w:\bioma\backend-csharp\Bioma.Domain\obj\Debug\net9.0\ref\Bioma.Domain.dll

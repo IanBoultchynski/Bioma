@@ -1,0 +1,75 @@
+is_global = true
+build_property.TargetFramework = net9.0
+build_property.TargetFrameworkIdentifier = .NETCoreApp
+build_property.TargetFrameworkVersion = v9.0
+build_property.TargetPlatformMinVersion = 
+build_property.UsingMicrosoftNETSdkWeb = true
+build_property.ProjectTypeGuids = 
+build_property.InvariantGlobalization = 
+build_property.PlatformNeutralAssembly = 
+build_property.EnforceExtendedAnalyzerRules = 
+build_property._SupportedPlatformList = Linux,macOS,Windows
+build_property.RootNamespace = Bioma.Client
+build_property.RootNamespace = Bioma.Client
+build_property.ProjectDir = W:\bioma\frontend-blazor\Bioma.Client\
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = 
+build_property.RazorLangVersion = 9.0
+build_property.SupportLocalizedComponentNames = 
+build_property.GenerateRazorMetadataSourceChecksumAttributes = 
+build_property.MSBuildProjectDirectory = W:\bioma\frontend-blazor\Bioma.Client
+build_property._RazorSourceGeneratorDebug = 
+build_property.EffectiveAnalysisLevelStyle = 9.0
+build_property.EnableCodeStyleSeverity = 
+
+[W:/bioma/frontend-blazor/Bioma.Client/App.razor]
+build_metadata.AdditionalFiles.TargetPath = QXBwLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[W:/bioma/frontend-blazor/Bioma.Client/Pages/Auctions.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQXVjdGlvbnMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[W:/bioma/frontend-blazor/Bioma.Client/Pages/Biomes.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQmlvbWVzLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[W:/bioma/frontend-blazor/Bioma.Client/Pages/Collection.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ29sbGVjdGlvbi5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[W:/bioma/frontend-blazor/Bioma.Client/Pages/Expeditions.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcRXhwZWRpdGlvbnMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[W:/bioma/frontend-blazor/Bioma.Client/Pages/Laboratoire.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcTGFib3JhdG9pcmUucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[W:/bioma/frontend-blazor/Bioma.Client/Pages/Quiz.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUXVpei5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[W:/bioma/frontend-blazor/Bioma.Client/Pages/Refuge.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUmVmdWdlLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[W:/bioma/frontend-blazor/Bioma.Client/Pages/Tirages.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcVGlyYWdlcy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[W:/bioma/frontend-blazor/Bioma.Client/Routes.razor]
+build_metadata.AdditionalFiles.TargetPath = Um91dGVzLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[W:/bioma/frontend-blazor/Bioma.Client/Shared/MainLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXE1haW5MYXlvdXQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[W:/bioma/frontend-blazor/Bioma.Client/Shared/PolaroidCard.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFBvbGFyb2lkQ2FyZC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[W:/bioma/frontend-blazor/Bioma.Client/_Imports.razor]
+build_metadata.AdditionalFiles.TargetPath = X0ltcG9ydHMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 

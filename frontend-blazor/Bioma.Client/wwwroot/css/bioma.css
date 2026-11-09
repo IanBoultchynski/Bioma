@@ -1,0 +1,741 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,400&family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&display=swap');
+
+:root {
+    /* Thème Bioma : Herbier & Cabinet de Curiosités Forestier */
+    --figma-bg: #183225;
+    --figma-bg-dark: #11241B;
+    --figma-surface: #203F2F;
+    --figma-surface-alt: #162E22;
+    --figma-surface-deep: #0F2018;
+
+    --figma-border: rgba(235, 226, 205, 0.14);
+    --figma-border-strong: rgba(235, 226, 205, 0.28);
+
+    --figma-text: #F5F1E6;
+    --figma-text-soft: #C4D4C9;
+    --figma-text-muted: #8FA898;
+
+    --figma-cream: #EAE1CA;
+    --figma-cream-hover: #F5EFE0;
+    --figma-cream-ink: #15291E;
+    --figma-green-accent: #68C587;
+    --figma-gold: #DEB861;
+
+    --polaroid-bg: #F6F2E7;
+    --polaroid-ink: #18281F;
+
+    /* Variables utilisées dans les composants Razor */
+    --text-muted: var(--figma-text-muted);
+    --text-cream: var(--figma-text);
+    --border-subtle: var(--figma-border);
+    --border-highlight: var(--figma-border-strong);
+    --accent-gold: var(--figma-gold);
+    --accent-sand: var(--figma-cream);
+
+    --font-serif: 'Playfair Display', 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+::selection {
+    background: var(--figma-gold);
+    color: var(--figma-bg-dark);
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    background-color: var(--figma-bg);
+    background-image:
+        radial-gradient(circle at 18% 12%, rgba(104, 197, 135, 0.12) 0%, transparent 45%),
+        radial-gradient(circle at 82% 8%, rgba(222, 184, 97, 0.10) 0%, transparent 40%),
+        radial-gradient(ellipse at 50% 0%, #244836 0%, #183225 60%, #11241B 100%);
+    background-attachment: fixed;
+    color: var(--figma-text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+/* =========================================================
+   BARRE DE NAVIGATION SUPÉRIEURE
+   ========================================================= */
+.bioma-navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 62px;
+    padding: 0 2.5rem;
+    background: rgba(17, 36, 27, 0.88);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--figma-border-strong);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.bioma-nav-left {
+    display: flex;
+    align-items: center;
+    gap: 2.25rem;
+    height: 100%;
+}
+
+.bioma-brand {
+    font-family: var(--font-serif);
+    font-size: 1.65rem;
+    font-weight: 700;
+    color: var(--figma-text);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    letter-spacing: -0.02em;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.bioma-brand-leaf {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--figma-green-accent);
+    font-size: 1.05rem;
+    filter: drop-shadow(0 0 6px rgba(104, 197, 135, 0.4));
+}
+
+.bioma-nav-links {
+    display: flex;
+    align-items: center;
+    gap: 1.35rem;
+    height: 100%;
+}
+
+.bioma-nav-link {
+    display: inline-flex;
+    align-items: center;
+    height: 100%;
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: var(--figma-text-soft);
+    border-bottom: 2px solid transparent;
+    transition: color 0.2s ease, border-color 0.2s ease;
+    padding: 0 0.2rem;
+}
+
+.bioma-nav-link:hover {
+    color: var(--figma-cream);
+}
+
+.bioma-nav-link.active {
+    color: var(--figma-cream);
+    font-weight: 600;
+    border-bottom-color: var(--figma-gold);
+}
+
+.bioma-user-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.bioma-currency-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    background: linear-gradient(135deg, rgba(22, 46, 34, 0.9), rgba(15, 32, 24, 0.9));
+    border: 1px solid var(--figma-border-strong);
+    padding: 0.32rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--figma-cream);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.bioma-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3A634C, #244232);
+    border: 1.5px solid var(--figma-gold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-serif);
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--figma-cream);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* =========================================================
+   CONTENEUR PRINCIPAL & EN-TÊTES DE PAGE
+   ========================================================= */
+.bioma-container {
+    max-width: 1220px;
+    margin: 0 auto;
+    padding: 2rem 2.5rem 4rem;
+}
+
+.bioma-page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding-bottom: 1.25rem;
+    margin-bottom: 1.75rem;
+    border-bottom: 1px solid var(--figma-border-strong);
+    position: relative;
+}
+
+.bioma-page-header::after {
+    content: "✦";
+    position: absolute;
+    bottom: -9px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--figma-bg);
+    padding: 0 0.6rem;
+    color: var(--figma-gold);
+    font-size: 0.75rem;
+    opacity: 0.75;
+}
+
+.bioma-title {
+    font-family: var(--font-serif);
+    font-size: 2.25rem;
+    font-weight: 600;
+    color: var(--figma-text);
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+    margin-bottom: 0.3rem;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+}
+
+.bioma-subtitle {
+    color: var(--figma-text-soft);
+    font-size: 0.88rem;
+    font-weight: 400;
+}
+
+.bioma-stat-counter {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: rgba(17, 36, 27, 0.55);
+    border: 1px solid var(--figma-border);
+    padding: 0.55rem 1rem;
+    border-radius: 10px;
+}
+
+.bioma-stat-number {
+    font-family: var(--font-serif);
+    font-size: 2.35rem;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--figma-gold);
+}
+
+/* En-têtes de section */
+.figma-section-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-bottom: 0.65rem;
+    margin-bottom: 1.25rem;
+    border-bottom: 1px solid var(--figma-border);
+}
+
+.figma-section-title {
+    font-family: var(--font-serif);
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: var(--figma-text);
+}
+
+.figma-section-link {
+    font-size: 0.76rem;
+    font-weight: 500;
+    color: var(--figma-gold);
+    transition: color 0.15s, transform 0.15s;
+}
+
+.figma-section-link:hover {
+    color: var(--figma-cream-hover);
+    text-decoration: underline;
+}
+
+/* =========================================================
+   PANNEAUX & CARTES DE SURFACE
+   ========================================================= */
+.bioma-panel {
+    background: linear-gradient(165deg, rgba(35, 69, 52, 0.92) 0%, rgba(24, 49, 36, 0.95) 100%);
+    border: 1px solid var(--figma-border-strong);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.bioma-panel-dark {
+    background: rgba(18, 38, 28, 0.92);
+    border: 1px solid var(--figma-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.25);
+}
+
+/* =========================================================
+   BOUTONS BOTANIQUES
+   ========================================================= */
+.btn-sand {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    background: linear-gradient(180deg, #F0E7D2 0%, #DFD3B8 100%);
+    color: var(--figma-cream-ink);
+    border: 1px solid #F7F2E4;
+    border-radius: 8px;
+    padding: 0.68rem 1.15rem;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 0.84rem;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    transition: all 0.18s ease;
+    width: 100%;
+}
+
+.btn-sand:hover:not(:disabled) {
+    background: linear-gradient(180deg, #F7F1E1 0%, #EAE0C8 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.btn-sand:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.btn-outline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    background: rgba(17, 36, 27, 0.55);
+    color: var(--figma-text);
+    border: 1px solid var(--figma-border-strong);
+    border-radius: 8px;
+    padding: 0.62rem 1.05rem;
+    font-family: var(--font-sans);
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.btn-outline:hover:not(:disabled) {
+    background: rgba(234, 225, 202, 0.12);
+    border-color: var(--figma-gold);
+    color: var(--figma-cream);
+    transform: translateY(-1px);
+}
+
+/* =========================================================
+   CARTE POLAROÏD (SIGNATURE BIOMA)
+   ========================================================= */
+.polaroid-card {
+    background: linear-gradient(180deg, #FAF7EE 0%, #EFEAD8 100%);
+    color: var(--polaroid-ink);
+    border-radius: 6px;
+    padding: 8px 8px 12px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.38), 0 2px 5px rgba(0, 0, 0, 0.2);
+    transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.22s ease;
+    cursor: pointer;
+    position: relative;
+    border: 2px solid rgba(255, 255, 255, 0.65);
+    user-select: none;
+}
+
+/* Petit ruban de papier herbier discret en haut */
+.polaroid-card::before {
+    content: "";
+    position: absolute;
+    top: -5px;
+    left: 50%;
+    transform: translateX(-50%) rotate(-1.5deg);
+    width: 34px;
+    height: 9px;
+    background: rgba(226, 214, 185, 0.72);
+    border: 1px solid rgba(120, 105, 75, 0.2);
+    border-radius: 1px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+    z-index: 3;
+    pointer-events: none;
+}
+
+.polaroid-card:hover {
+    transform: translateY(-5px) rotate(-0.8deg);
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.48);
+}
+
+.polaroid-card.selected {
+    border-color: var(--figma-gold);
+    box-shadow: 0 0 0 3px rgba(222, 184, 97, 0.65), 0 16px 32px rgba(0, 0, 0, 0.5);
+}
+
+.polaroid-photo-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 0.88;
+    overflow: hidden;
+    border-radius: 3px;
+    background: #223B2D;
+    margin-bottom: 8px;
+    box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.25);
+}
+
+.polaroid-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.35s ease;
+}
+
+.polaroid-card:hover .polaroid-photo {
+    transform: scale(1.04);
+}
+
+.polaroid-badge-top {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: rgba(20, 42, 31, 0.86);
+    color: #F3F0E6;
+    font-size: 0.62rem;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.polaroid-name {
+    font-family: var(--font-serif);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #16271E;
+    line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.polaroid-scientific {
+    font-family: var(--font-serif);
+    font-size: 0.72rem;
+    font-style: italic;
+    color: #556B5E;
+    margin-top: 1px;
+    margin-bottom: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.polaroid-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.66rem;
+    font-weight: 500;
+    color: #42584B;
+    padding-top: 5px;
+    border-top: 1px dashed rgba(24, 40, 31, 0.16);
+}
+
+.polaroid-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #3B8EA5;
+    margin-right: 4px;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
+}
+
+.polaroid-dot.commune { background: #5B9A68; }
+.polaroid-dot.peu-commune { background: #4A8DB7; }
+.polaroid-dot.rare { background: #D4922A; }
+.polaroid-dot.hybride { background: #8E5BC4; }
+
+/* =========================================================
+   BOOSTER PACK ("ÉCHOS DU VIVANT")
+   ========================================================= */
+.booster-pack-card {
+    width: 200px;
+    height: 288px;
+    background:
+        radial-gradient(circle at 50% 42%, rgba(104, 197, 135, 0.22) 0%, transparent 60%),
+        linear-gradient(160deg, #2B5940 0%, #1D3E2D 55%, #12281C 100%);
+    border: 1.5px solid rgba(222, 184, 97, 0.55);
+    border-radius: 10px;
+    padding: 1.15rem 0.95rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    text-align: center;
+    box-shadow:
+        -12px 18px 32px rgba(0, 0, 0, 0.48),
+        inset 0 0 0 4px rgba(234, 225, 202, 0.06),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    transform: rotate(-3.5deg);
+    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.booster-pack-card:hover {
+    transform: rotate(-1deg) translateY(-4px) scale(1.03);
+    box-shadow:
+        -8px 22px 38px rgba(0, 0, 0, 0.55),
+        0 0 20px rgba(222, 184, 97, 0.2),
+        inset 0 0 0 4px rgba(222, 184, 97, 0.15);
+}
+
+/* =========================================================
+   VITRINES BIOMES & SOCLES BOISÉS 3D
+   ========================================================= */
+.biome-card-wrapper {
+    background: linear-gradient(180deg, #1E3B2B 0%, #152B1F 100%);
+    border: 1px solid var(--figma-border-strong);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.biome-card-wrapper:hover {
+    border-color: rgba(222, 184, 97, 0.45);
+}
+
+.biome-stage {
+    position: relative;
+    height: 255px;
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 1.15rem;
+    padding: 1.25rem 1rem 1.9rem;
+    box-shadow: inset 0 -55px 60px rgba(12, 26, 18, 0.82);
+}
+
+/* Plateau en bois naturel au pied de la vitrine */
+.biome-stage::before {
+    content: "";
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 78%;
+    height: 38px;
+    background: radial-gradient(ellipse at center, #9A784E 0%, #6D5231 65%, #3E2D19 100%);
+    border-radius: 50%;
+    border: 1px solid rgba(255, 228, 185, 0.32);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.7), inset 0 2px 6px rgba(255, 235, 200, 0.2);
+    z-index: 1;
+}
+
+.biome-pedestal {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.biome-empty-slot {
+    width: 86px;
+    height: 106px;
+    border: 1.5px dashed rgba(234, 225, 202, 0.45);
+    background: rgba(15, 32, 23, 0.55);
+    backdrop-filter: blur(4px);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--figma-cream);
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+
+.biome-empty-slot:hover {
+    border-color: var(--figma-gold);
+    background: rgba(222, 184, 97, 0.15);
+}
+
+.biome-card-footer {
+    background: rgba(22, 46, 34, 0.95);
+    border-top: 1px solid var(--figma-border);
+    padding: 1.1rem 1.35rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* =========================================================
+   GRILLES, FILTRES & JAUGES
+   ========================================================= */
+.refuge-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.18fr;
+    gap: 2.35rem;
+    align-items: start;
+}
+
+.collection-layout {
+    display: grid;
+    grid-template-columns: 1fr 350px;
+    gap: 1.65rem;
+    align-items: start;
+}
+
+.polaroid-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.05rem;
+}
+
+.biomes-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.35rem;
+}
+
+.auctions-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
+}
+
+.filter-bar {
+    display: grid;
+    grid-template-columns: 1.8fr 1fr 1fr 1fr auto;
+    gap: 0.85rem;
+    margin-bottom: 1.1rem;
+    align-items: end;
+    background: rgba(17, 36, 27, 0.5);
+    border: 1px solid var(--figma-border);
+    padding: 1rem 1.15rem;
+    border-radius: 10px;
+}
+
+.bioma-input,
+.bioma-select {
+    width: 100%;
+    background: #12261C;
+    border: 1px solid var(--figma-border-strong);
+    color: var(--figma-text);
+    padding: 0.58rem 0.8rem;
+    border-radius: 6px;
+    font-family: var(--font-sans);
+    font-size: 0.82rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bioma-input:focus,
+.bioma-select:focus {
+    outline: none;
+    border-color: var(--figma-gold);
+    box-shadow: 0 0 0 2px rgba(222, 184, 97, 0.2);
+}
+
+.pill-tabs {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+}
+
+.pill-tab {
+    background: rgba(17, 36, 27, 0.65);
+    border: 1px solid var(--figma-border);
+    color: var(--figma-text-soft);
+    padding: 0.38rem 0.9rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.pill-tab:hover {
+    color: var(--figma-text);
+    border-color: var(--figma-border-strong);
+}
+
+.pill-tab.active {
+    background: linear-gradient(135deg, rgba(222, 184, 97, 0.22), rgba(234, 225, 202, 0.14));
+    color: var(--figma-cream);
+    border-color: var(--figma-gold);
+    font-weight: 600;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.xp-bar-track {
+    width: 100%;
+    height: 7px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 0.45rem 0 0.95rem;
+}
+
+.xp-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #52A76E 0%, #7ED49A 100%);
+    border-radius: 999px;
+    box-shadow: 0 0 8px rgba(104, 197, 135, 0.5);
+}
+
+.globe-viewport {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 430px;
+    background: radial-gradient(circle at 50% 45%, #1E3E2D 0%, #12261C 75%);
+    border-radius: 12px;
+    border: 1px solid var(--figma-border-strong);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32);
+    padding: 1.65rem;
+}
+
+.hotspot-pulse {
+    cursor: pointer;
+}
+
+@media (max-width: 980px) {
+    .refuge-grid,
+    .collection-layout,
+    .biomes-grid,
+    .auctions-grid,
+    .polaroid-grid {
+        grid-template-columns: 1fr;
+    }
+    .filter-bar {
+        grid-template-columns: 1fr 1fr;
+    }
+}

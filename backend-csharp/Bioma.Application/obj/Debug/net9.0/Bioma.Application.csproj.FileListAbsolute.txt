@@ -1,0 +1,16 @@
+w:\bioma\backend-csharp\Bioma.Application\bin\Debug\net9.0\Bioma.Application.deps.json
+w:\bioma\backend-csharp\Bioma.Application\bin\Debug\net9.0\Bioma.Application.dll
+w:\bioma\backend-csharp\Bioma.Application\bin\Debug\net9.0\Bioma.Application.pdb
+w:\bioma\backend-csharp\Bioma.Application\bin\Debug\net9.0\Bioma.Domain.dll
+w:\bioma\backend-csharp\Bioma.Application\bin\Debug\net9.0\Bioma.Domain.pdb
+w:\bioma\backend-csharp\Bioma.Application\obj\Debug\net9.0\Bioma.Application.csproj.AssemblyReference.cache
+w:\bioma\backend-csharp\Bioma.Application\obj\Debug\net9.0\Bioma.Application.GeneratedMSBuildEditorConfig.editorconfig
+w:\bioma\backend-csharp\Bioma.Application\obj\Debug\net9.0\Bioma.Application.AssemblyInfoInputs.cache
+w:\bioma\backend-csharp\Bioma.Application\obj\Debug\net9.0\Bioma.Application.AssemblyInfo.cs
+w:\bioma\backend-csharp\Bioma.Application\obj\Debug\net9.0\Bioma.Application.csproj.CoreCompileInputs.cache
+w:\bioma\backend-csharp\Bioma.Application\obj\Debug\net9.0\Bioma.Application.sourcelink.json
+w:\bioma\backend-csharp\Bioma.Application\obj\Debug\net9.0\Bioma.Ap.AFB48C53.Up2Date
+w:\bioma\backend-csharp\Bioma.Application\obj\Debug\net9.0\Bioma.Application.dll
+w:\bioma\backend-csharp\Bioma.Application\obj\Debug\net9.0\refint\Bioma.Application.dll
+w:\bioma\backend-csharp\Bioma.Application\obj\Debug\net9.0\Bioma.Application.pdb
+w:\bioma\backend-csharp\Bioma.Application\obj\Debug\net9.0\ref\Bioma.Application.dll

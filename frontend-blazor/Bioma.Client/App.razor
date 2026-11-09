@@ -1,0 +1,44 @@
+@using System.IO
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Env
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <title>Bioma · Collection Scientifique &amp; Biodiversité</title>
+    <link rel="stylesheet" href="/css/bioma.css?v=6" />
+    @if (!string.IsNullOrEmpty(_inlineCss))
+    {
+        <style>@((MarkupString)_inlineCss)</style>
+    }
+    <HeadOutlet @rendermode="InteractiveServer" />
+</head>
+
+<body>
+    <Routes @rendermode="InteractiveServer" />
+    <script src="_framework/blazor.web.js"></script>
+</body>
+
+</html>
+
+@code {
+    private string? _inlineCss;
+
+    protected override void OnInitialized()
+    {
+        var candidates = new[]
+        {
+            Path.Combine(Env.ContentRootPath, "wwwroot", "css", "bioma.css"),
+            Path.Combine(AppContext.BaseDirectory, "wwwroot", "css", "bioma.css"),
+            @"w:\bioma\frontend-blazor\Bioma.Client\wwwroot\css\bioma.css"
+        };
+
+        var path = candidates.FirstOrDefault(File.Exists);
+        if (path != null)
+        {
+            _inlineCss = File.ReadAllText(path);
+        }
+    }
+}

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Bioma.Domain\Bioma.Domain.csproj" />
+    <ProjectReference Include="..\Bioma.Application\Bioma.Application.csproj" />
+    <ProjectReference Include="..\Bioma.Infrastructure\Bioma.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

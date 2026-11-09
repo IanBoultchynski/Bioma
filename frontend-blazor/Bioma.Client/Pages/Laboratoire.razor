@@ -1,0 +1,337 @@
+@page "/laboratoire"
+@using Bioma.Application.DTOs
+@using Bioma.Application.Interfaces
+@using Bioma.Domain.Entities
+@inject IBiomaGameService GameService
+
+<div class="bioma-page-header">
+    <div>
+        <h1 class="bioma-title">Laboratoire IA, Capture IRL &amp; Duels 1v1</h1>
+        <p class="bioma-subtitle">
+            Interfaçage direct avec le Back-Office Python (PyTorch ResNet50, IA Générative de Fusion &amp; Moteur de Gamification).
+        </p>
+    </div>
+
+    <div class="pill-tabs" style="margin-bottom: 0;">
+        <button class="pill-tab @(_section == "fusion" ? "active" : "")" @onclick='() => _section = "fusion"'>🧬 Fiche 2 · Fusion Animale (IA Générative)</button>
+        <button class="pill-tab @(_section == "capture" ? "active" : "")" @onclick='() => _section = "capture"'>📷 Fiche 1 · Capture IRL (L'Instantané)</button>
+        <button class="pill-tab @(_section == "combat" ? "active" : "")" @onclick='() => _section = "combat"'>⚔️ Batailles 1v1 Scientifiques</button>
+    </div>
+</div>
+
+@if (_section == "fusion")
+{
+    <!-- FICHE USE CASE 2 : LE LABORATOIRE DE FUSION (Page 5 & Page 14 du Cahier des Charges) -->
+    <div class="refuge-grid">
+        <section class="bioma-panel">
+            <div style="font-size: 0.72rem; letter-spacing: 0.1em; color: var(--accent-gold); margin-bottom: 0.25rem;">
+                FICHE USE CASE 2 · IA GÉNÉRATIVE &amp; PONDÉRATION STATISTIQUE
+            </div>
+            <h2 style="font-family: var(--font-serif); font-size: 1.65rem; margin-bottom: 0.5rem;">Croiser deux espèces adultes</h2>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+                Formule : <code>Stat_Hybride = ((Stat_A + Stat_B) / 2) × multiplicateur_rareté × (1.10 si Catalyseur)</code>
+            </p>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.15rem;">
+                <div>
+                    <label style="font-size: 0.78rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Emplacement Parent A (Adulte)</label>
+                    <select class="bioma-select" @bind="_parentAId">
+                        @foreach (var c in _adultCards)
+                        {
+                            <option value="@c.Id">@c.Name (#@c.SpecimenNumber · ATK @c.Attack · PV @c.Hp)</option>
+                        }
+                    </select>
+                </div>
+
+                <div>
+                    <label style="font-size: 0.78rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Emplacement Parent B (Adulte)</label>
+                    <select class="bioma-select" @bind="_parentBId">
+                        @foreach (var c in _adultCards)
+                        {
+                            <option value="@c.Id">@c.Name (#@c.SpecimenNumber · ATK @c.Attack · PV @c.Hp)</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <!-- Scénario alternatif 2a : Catalyseur Boost (+10%) -->
+            <label style="display: flex; align-items: center; gap: 0.65rem; background: rgba(255,255,255,0.05); padding: 0.85rem 1rem; border-radius: 10px; border: 1px solid var(--border-subtle); margin-bottom: 1.15rem; cursor: pointer;">
+                <input type="checkbox" @bind="_useCatalyst" style="width: 18px; height: 18px;" />
+                <div>
+                    <div style="font-weight: 600; font-size: 0.88rem;">Scénario 2a : Ajouter un Catalyseur « Boost » (+80 feuilles)</div>
+                    <div style="font-size: 0.76rem; color: var(--text-muted);">Garantit des statistiques hybrides supérieures (+10% sur PV, Attaque et Défense).</div>
+                </div>
+            </label>
+
+            @if (_parentAId == _parentBId)
+            {
+                <div style="background: rgba(229, 115, 115, 0.18); border: 1px solid #E57373; padding: 0.75rem; border-radius: 8px; font-size: 0.84rem; margin-bottom: 1rem;">
+                    ⚠️ Exception E2 (Incompatibilité) : Vous tentez de fusionner une carte avec elle-même. Le bouton de validation est désactivé.
+                </div>
+            }
+
+            <button class="btn-sand" disabled="@(_parentAId == _parentBId)" @onclick="RunLaboratoryFusion">
+                <span>Valider la fusion au Laboratoire (@(_useCatalyst ? 280 : 200) feuilles)</span>
+                <span>→</span>
+            </button>
+        </section>
+
+        <section class="bioma-panel" style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            @if (_fusionResult?.HybridCard != null)
+            {
+                <div style="font-size: 0.75rem; color: #DECFF8; letter-spacing: 0.08em; margin-bottom: 0.6rem;">
+                    ✨ NOUVELLE CRÉATURE HYBRIDE CRÉÉE EN BASE DE DONNÉES
+                </div>
+                <div style="width: 225px; margin-bottom: 1rem;">
+                    <PolaroidCard Card="_fusionResult.HybridCard" />
+                </div>
+                <div style="font-size: 0.82rem; color: var(--text-cream); text-align: center; margin-bottom: 0.65rem;">
+                    @_fusionResult.Message
+                </div>
+                <div style="font-size: 0.74rem; color: var(--text-muted); background: rgba(0,0,0,0.28); padding: 0.65rem 0.9rem; border-radius: 8px; width: 100%;">
+                    <strong>Prompt IA Générative :</strong> « @_fusionResult.GeneratedPrompt »
+                </div>
+            }
+            else
+            {
+                <div style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                    <div style="font-family: var(--font-serif); font-size: 1.4rem; color: var(--text-cream); margin-bottom: 0.45rem;">
+                        Chambre de Synthèse Génétique
+                    </div>
+                    <p style="font-size: 0.86rem;">
+                        Sélectionnez deux spécimens adultes distincts à gauche pour générer un Polaroïd hybride unique via l'API Python.
+                    </p>
+                </div>
+            }
+        </section>
+    </div>
+}
+else if (_section == "capture")
+{
+    <!-- FICHE USE CASE 1 : CAPTURER UN ANIMAL IRL (L'INSTANTANÉ - Page 4 & Page 7) -->
+    <div class="refuge-grid">
+        <section class="bioma-panel">
+            <div style="font-size: 0.72rem; letter-spacing: 0.1em; color: var(--accent-gold); margin-bottom: 0.25rem;">
+                FICHE USE CASE 1 · RECONNAISSANCE VISUELLE PYTORCH (RESNET50 / YOLO)
+            </div>
+            <h2 style="font-family: var(--font-serif); font-size: 1.65rem; margin-bottom: 0.5rem;">Module « L'Instantané » (Capture IRL)</h2>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.15rem;">
+                L'image est pré-traitée en 224×224 (normalisation RGB ImageNet) puis analysée par le réseau de neurones PyTorch avec géolocalisation GPS.
+            </p>
+
+            <div style="margin-bottom: 1rem;">
+                <label style="font-size: 0.78rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">
+                    Scénario de prise de vue à tester (Caméra / Photo terrain)
+                </label>
+                <select class="bioma-select" @bind="_capturePreset">
+                    <option value="vulpes_nominal">Scénario Nominal (&gt; 90%) : Photo nette de Renard roux (Vulpes vulpes)</option>
+                    <option value="alcedo_nominal">Scénario Nominal (&gt; 90%) : Photo nette de Martin-pêcheur (Alcedo atthis)</option>
+                    <option value="uncertain_74">Scénario Alternatif 4a (50% à 90%) : Animal à contre-jour (Top 3 espèces probables)</option>
+                    <option value="blur_rejected">Exception E1 (&lt; 50%) : Photo floue / Sous-exposée (Sujet non reconnu)</option>
+                </select>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
+                <div>
+                    <label style="font-size: 0.76rem; color: var(--text-muted);">Latitude GPS</label>
+                    <input type="number" step="0.0001" class="bioma-input" @bind="_captureLat" />
+                </div>
+                <div>
+                    <label style="font-size: 0.76rem; color: var(--text-muted);">Longitude GPS</label>
+                    <input type="number" step="0.0001" class="bioma-input" @bind="_captureLon" />
+                </div>
+            </div>
+
+            <button class="btn-sand" @onclick="TriggerIrlCapture">
+                <span>Analyser la photo via l'IA de Reconnaissance</span>
+                <span>📷</span>
+            </button>
+        </section>
+
+        <section class="bioma-panel">
+            @if (_captureResult != null)
+            {
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+                    <span class="bioma-currency-pill">Statut IA : @_captureResult.Status</span>
+                    <span style="font-weight: 700; color: var(--accent-sand);">Certitude : @(Math.Round(_captureResult.Confidence * 100)) %</span>
+                </div>
+
+                <p style="font-size: 0.9rem; margin-bottom: 1rem;">@_captureResult.Message</p>
+
+                @if (_captureResult.Status == "UNCERTAIN" && _captureResult.Candidates.Count > 0)
+                {
+                    <div style="font-size: 0.82rem; color: var(--accent-gold); margin-bottom: 0.65rem;">
+                        Scénario 4a : Sélectionnez l'espèce exacte parmi les 3 propositions de l'IA (enrichissement du dataset) :
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        @foreach (var cand in _captureResult.Candidates)
+                        {
+                            <button class="btn-outline" @onclick="() => ConfirmCandidateSpecies(cand.ScientificName)">
+                                <span>@cand.CommonName (<em>@cand.ScientificName</em>)</span>
+                                <span>@(Math.Round(cand.Confidence * 100)) % →</span>
+                            </button>
+                        }
+                    </div>
+                }
+                else if (_captureResult.UnlockedCard != null)
+                {
+                    <div style="display: flex; justify-content: center; margin-top: 0.75rem;">
+                        <div style="width: 210px;">
+                            <PolaroidCard Card="_captureResult.UnlockedCard" />
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div style="text-align: center; color: var(--text-muted); padding: 2.5rem 1rem;">
+                    Déclenchez une prise de vue à gauche pour visualiser le diagnostic du réseau de neurones et l'impression du Polaroïd.
+                </div>
+            }
+        </section>
+    </div>
+}
+else
+{
+    <!-- DIAGRAMME DE SÉQUENCE PAGE 7 : BATAILLES 1V1 SCIENTIFIQUES -->
+    <div class="refuge-grid">
+        <section class="bioma-panel">
+            <div style="font-size: 0.72rem; letter-spacing: 0.1em; color: var(--accent-gold); margin-bottom: 0.25rem;">
+                DIAGRAMME DE SÉQUENCE P.7 · ALGORITHME DE COMBAT SCIENTIFIQUE
+            </div>
+            <h2 style="font-family: var(--font-serif); font-size: 1.65rem; margin-bottom: 0.5rem;">Duel Tactique 1v1</h2>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.15rem;">
+                Formule : <code>Puissance = Poids × 0.4 + Danger × 0.6 + Multiplicateur de Biome</code>.<br />
+                Ajustement du classement Elo : <strong>+25</strong> en cas de victoire, <strong>-15</strong> en cas de défaite.
+            </p>
+
+            <div style="margin-bottom: 1.15rem;">
+                <label style="font-size: 0.78rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Biome de l'arène de combat</label>
+                <select class="bioma-select" @bind="_combatBiome">
+                    <option value="Forêt">Forêt tempérée (Bonus pour Lynx, Renard, Hybride)</option>
+                    <option value="Zone humide">Zone humide (Bonus pour Martin-pêcheur)</option>
+                    <option value="Désert">Désert aride</option>
+                </select>
+            </div>
+
+            <button class="btn-sand" @onclick="StartCombatDuel">
+                <span>Lancer le combat 1v1 avec mon deck actif</span>
+                <span>⚔️</span>
+            </button>
+
+            @if (_combatResult != null)
+            {
+                <div class="bioma-panel" style="margin-top: 1.25rem; border-color: @(_combatResult.AttackerWon ? "#6CC089" : "#E57373");">
+                    <div style="font-family: var(--font-serif); font-size: 1.4rem; color: @(_combatResult.AttackerWon ? "#8DE0AA" : "#F28B82");">
+                        @(_combatResult.AttackerWon ? "🏆 Victoire Scientifique !" : "Défaite Tactique")
+                        (@(_combatResult.EloDelta > 0 ? $"+{_combatResult.EloDelta}" : _combatResult.EloDelta.ToString()) Elo → Nouveau score : @_combatResult.NewEloRating)
+                    </div>
+                    <p style="font-size: 0.84rem; color: var(--text-muted); margin-top: 0.35rem;">
+                        @_combatResult.FormulaBreakdown
+                    </p>
+                </div>
+            }
+        </section>
+
+        <section class="bioma-panel">
+            <h3 style="font-family: var(--font-serif); font-size: 1.4rem; margin-bottom: 0.9rem;">Historique des combats (User Story #60)</h3>
+            @if (_combatHistory.Count == 0)
+            {
+                <p style="font-size: 0.85rem; color: var(--text-muted);">Aucun combat enregistré dans cette session.</p>
+            }
+            else
+            {
+                <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+                    @foreach (var match in _combatHistory)
+                    {
+                        <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--border-subtle); padding: 0.75rem 1rem; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 0.84rem;">
+                            <div>
+                                <div style="font-weight: 600;">@match.AttackerPseudo vs @match.DefenderPseudo · Biome @match.ArenaBiome</div>
+                                <div style="font-size: 0.76rem; color: var(--text-muted);">@match.CombatSummary</div>
+                            </div>
+                            <span style="font-weight: 700; color: @(match.AttackerWon ? "#8DE0AA" : "#F28B82");">
+                                @(match.EloDelta > 0 ? $"+{match.EloDelta}" : match.EloDelta.ToString()) Elo
+                            </span>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+    </div>
+}
+
+@code {
+    private string _section = "fusion";
+    private List<CardDto> _adultCards = new();
+    private Guid _parentAId;
+    private Guid _parentBId;
+    private bool _useCatalyst = true;
+    private FusionLabResponseDto? _fusionResult;
+
+    private string _capturePreset = "vulpes_nominal";
+    private double _captureLat = 45.8992;
+    private double _captureLon = 6.1294;
+    private CaptureResponseDto? _captureResult;
+
+    private string _combatBiome = "Forêt";
+    private CombatResultDto? _combatResult;
+    private List<Combat1v1> _combatHistory = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshLabData();
+    }
+
+    private async Task RefreshLabData()
+    {
+        var all = await GameService.GetPlayerCollectionAsync();
+        _adultCards = all.Where(c => c.IsAdult).ToList();
+        if (_adultCards.Count >= 2 && _parentAId == Guid.Empty)
+        {
+            _parentAId = _adultCards[0].Id;
+            _parentBId = _adultCards[1].Id;
+        }
+        _combatHistory = await GameService.GetCombatHistoryAsync();
+    }
+
+    private async Task RunLaboratoryFusion()
+    {
+        _fusionResult = await GameService.ExecuteLaboratoryFusionAsync(new FusionLabRequestDto(
+            Guid.Empty,
+            _parentAId,
+            _parentBId,
+            _useCatalyst
+        ));
+        await RefreshLabData();
+    }
+
+    private async Task TriggerIrlCapture()
+    {
+        _captureResult = await GameService.ProcessIrlCaptureAsync(new CaptureRequestDto(
+            Guid.Empty,
+            _capturePreset,
+            _captureLat,
+            _captureLon,
+            _capturePreset
+        ));
+        await RefreshLabData();
+    }
+
+    private async Task ConfirmCandidateSpecies(string scientificName)
+    {
+        _captureResult = await GameService.ProcessIrlCaptureAsync(new CaptureRequestDto(
+            Guid.Empty,
+            scientificName,
+            _captureLat,
+            _captureLon,
+            scientificName
+        ));
+        await RefreshLabData();
+    }
+
+    private async Task StartCombatDuel()
+    {
+        _combatResult = await GameService.ResolveCombat1v1Async(new CombatRequestDto(Guid.Empty, _combatBiome));
+        _combatHistory = await GameService.GetCombatHistoryAsync();
+    }
+}

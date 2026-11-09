@@ -1,0 +1,46 @@
+@using Bioma.Application.DTOs
+
+@{
+    string dotClass = Card.IsHybrid ? "hybride"
+        : Card.RarityLabel == "Rare" ? "rare"
+        : Card.RarityLabel == "Peu commune" ? "peu-commune"
+        : "commune";
+}
+
+<div class="polaroid-card @(IsSelected ? "selected" : "")"
+     style="@(Compact ? "width: 112px; padding: 5px 5px 8px;" : "")"
+     @onclick="() => OnSelect.InvokeAsync(Card)">
+    <div class="polaroid-photo-wrap" style="@(Compact ? "margin-bottom: 5px;" : "")">
+        <img class="polaroid-photo" src="@Card.ImageUrl" alt="@Card.Name" loading="lazy" />
+    </div>
+
+    <div class="polaroid-name" style="@(Compact ? "font-size: 0.74rem;" : "")">@Card.Name</div>
+    <div class="polaroid-scientific" style="@(Compact ? "font-size: 0.6rem; margin-bottom: 4px;" : "")">@Card.ScientificSubtitle</div>
+
+    <div class="polaroid-footer" style="@(Compact ? "font-size: 0.58rem; padding-top: 3px;" : "")">
+        <span style="display: inline-flex; align-items: center;">
+            <span class="polaroid-dot @dotClass"></span>
+            <span>@(Card.IsHybrid ? "Rare" : Card.RarityLabel)</span>
+        </span>
+        @if (!Compact)
+        {
+            <span style="background: @(Card.IsAdult ? "#D99B38" : "rgba(0,0,0,0.08)"); color: @(Card.IsAdult ? "#FFF" : "#3E5246"); padding: 1px 5px; border-radius: 3px; font-weight: 600; font-size: 0.62rem;">
+                #@Card.SpecimenNumber
+            </span>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public CardDto Card { get; set; } = default!;
+
+    [Parameter]
+    public bool IsSelected { get; set; }
+
+    [Parameter]
+    public bool Compact { get; set; }
+
+    [Parameter]
+    public EventCallback<CardDto> OnSelect { get; set; }
+}

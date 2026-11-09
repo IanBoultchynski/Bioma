@@ -1,10 +1,9 @@
 @using Bioma.Application.DTOs
 
 @{
-    string dotClass = Card.IsHybrid ? "hybride"
-        : Card.RarityLabel == "Rare" ? "rare"
-        : Card.RarityLabel == "Peu commune" ? "peu-commune"
-        : "commune";
+    string dotClass = Card.SourceApi.Equals("GBIF", StringComparison.OrdinalIgnoreCase)
+        ? "rare"
+        : "peu-commune";
 }
 
 <div class="polaroid-card @(IsSelected ? "selected" : "")"
@@ -20,12 +19,12 @@
     <div class="polaroid-footer" style="@(Compact ? "font-size: 0.58rem; padding-top: 3px;" : "")">
         <span style="display: inline-flex; align-items: center;">
             <span class="polaroid-dot @dotClass"></span>
-            <span>@(Card.IsHybrid ? "Rare" : Card.RarityLabel)</span>
+            <span>@Card.SourceApi</span>
         </span>
         @if (!Compact)
         {
-            <span style="background: @(Card.IsAdult ? "#D99B38" : "rgba(0,0,0,0.08)"); color: @(Card.IsAdult ? "#FFF" : "#3E5246"); padding: 1px 5px; border-radius: 3px; font-weight: 600; font-size: 0.62rem;">
-                #@Card.SpecimenNumber
+            <span style="background: rgba(0,0,0,0.08); color: #3E5246; padding: 1px 5px; border-radius: 3px; font-weight: 600; font-size: 0.6rem;">
+                @Card.ObservedDate
             </span>
         }
     </div>

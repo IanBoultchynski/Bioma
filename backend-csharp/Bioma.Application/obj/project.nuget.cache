@@ -1,12 +1,12 @@
 {
   "version": 2,
-  "dgSpecHash": "x1iWVUBVxTc=",
+  "dgSpecHash": "6uEJxj/fL04=",
   "success": true,
-  "projectFilePath": "W:\\bioma\\backend-csharp\\Bioma.Application\\Bioma.Application.csproj",
+  "projectFilePath": "C:\\Users\\brunelo\\Downloads\\Bioma-main\\Bioma\\backend-csharp\\Bioma.Application\\Bioma.Application.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\boultchi\\.nuget\\packages\\microsoft.netcore.app.ref\\9.0.16\\microsoft.netcore.app.ref.9.0.16.nupkg.sha512",
-    "C:\\Users\\boultchi\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\9.0.16\\microsoft.windowsdesktop.app.ref.9.0.16.nupkg.sha512",
-    "C:\\Users\\boultchi\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\9.0.16\\microsoft.aspnetcore.app.ref.9.0.16.nupkg.sha512"
+    "C:\\Users\\brunelo\\.nuget\\packages\\microsoft.netcore.app.ref\\9.0.16\\microsoft.netcore.app.ref.9.0.16.nupkg.sha512",
+    "C:\\Users\\brunelo\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\9.0.16\\microsoft.windowsdesktop.app.ref.9.0.16.nupkg.sha512",
+    "C:\\Users\\brunelo\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\9.0.16\\microsoft.aspnetcore.app.ref.9.0.16.nupkg.sha512"
   ],
   "logs": []
 }

@@ -22,14 +22,11 @@ builder.Services.AddDbContext<BiomaDbContext>(options =>
     }
 });
 
-var pythonBaseUrl = builder.Configuration["PythonAiService:BaseUrl"] ?? "http://localhost:8000";
-builder.Services.AddHttpClient<IPythonAiClient, PythonAiClient>(client =>
+builder.Services.AddHttpClient<IBiomaGameService, BiomaGameService>(client =>
 {
-    client.BaseAddress = new Uri(pythonBaseUrl);
     client.Timeout = TimeSpan.FromSeconds(8);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("BiomaSimplifiedApp/1.0");
 });
-
-builder.Services.AddScoped<IBiomaGameService, BiomaGameService>();
 
 var app = builder.Build();
 
@@ -49,8 +46,7 @@ app.MapGet("/css/bioma.css", async (IWebHostEnvironment env) =>
     var candidates = new[]
     {
         Path.Combine(env.ContentRootPath, "wwwroot", "css", "bioma.css"),
-        Path.Combine(AppContext.BaseDirectory, "wwwroot", "css", "bioma.css"),
-        @"w:\bioma\frontend-blazor\Bioma.Client\wwwroot\css\bioma.css"
+        Path.Combine(AppContext.BaseDirectory, "wwwroot", "css", "bioma.css")
     };
 
     var path = candidates.FirstOrDefault(File.Exists);

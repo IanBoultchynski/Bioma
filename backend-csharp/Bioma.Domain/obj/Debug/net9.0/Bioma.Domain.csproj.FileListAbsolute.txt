@@ -10,3 +10,15 @@ w:\bioma\backend-csharp\Bioma.Domain\obj\Debug\net9.0\Bioma.Domain.dll
 w:\bioma\backend-csharp\Bioma.Domain\obj\Debug\net9.0\refint\Bioma.Domain.dll
 w:\bioma\backend-csharp\Bioma.Domain\obj\Debug\net9.0\Bioma.Domain.pdb
 w:\bioma\backend-csharp\Bioma.Domain\obj\Debug\net9.0\ref\Bioma.Domain.dll
+C:\Users\brunelo\Downloads\Bioma-main\Bioma\backend-csharp\Bioma.Domain\bin\Debug\net9.0\Bioma.Domain.deps.json
+C:\Users\brunelo\Downloads\Bioma-main\Bioma\backend-csharp\Bioma.Domain\bin\Debug\net9.0\Bioma.Domain.dll
+C:\Users\brunelo\Downloads\Bioma-main\Bioma\backend-csharp\Bioma.Domain\bin\Debug\net9.0\Bioma.Domain.pdb
+C:\Users\brunelo\Downloads\Bioma-main\Bioma\backend-csharp\Bioma.Domain\obj\Debug\net9.0\Bioma.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\brunelo\Downloads\Bioma-main\Bioma\backend-csharp\Bioma.Domain\obj\Debug\net9.0\Bioma.Domain.AssemblyInfoInputs.cache
+C:\Users\brunelo\Downloads\Bioma-main\Bioma\backend-csharp\Bioma.Domain\obj\Debug\net9.0\Bioma.Domain.AssemblyInfo.cs
+C:\Users\brunelo\Downloads\Bioma-main\Bioma\backend-csharp\Bioma.Domain\obj\Debug\net9.0\Bioma.Domain.csproj.CoreCompileInputs.cache
+C:\Users\brunelo\Downloads\Bioma-main\Bioma\backend-csharp\Bioma.Domain\obj\Debug\net9.0\Bioma.Domain.sourcelink.json
+C:\Users\brunelo\Downloads\Bioma-main\Bioma\backend-csharp\Bioma.Domain\obj\Debug\net9.0\Bioma.Domain.dll
+C:\Users\brunelo\Downloads\Bioma-main\Bioma\backend-csharp\Bioma.Domain\obj\Debug\net9.0\refint\Bioma.Domain.dll
+C:\Users\brunelo\Downloads\Bioma-main\Bioma\backend-csharp\Bioma.Domain\obj\Debug\net9.0\Bioma.Domain.pdb
+C:\Users\brunelo\Downloads\Bioma-main\Bioma\backend-csharp\Bioma.Domain\obj\Debug\net9.0\ref\Bioma.Domain.dll

@@ -2,149 +2,218 @@
 @page "/refuge"
 @using Bioma.Application.DTOs
 @using Bioma.Application.Interfaces
-@using Bioma.Domain.Entities
-@inject IBiomaGameService GameService
-@inject NavigationManager Nav
+@inject IBiomaGameService BiodiversityService
 
-@if (_profile != null)
-{
-    <div class="bioma-page-header">
-        <div>
-            <h1 class="bioma-title">Votre refuge</h1>
-            <p class="bioma-subtitle">Bonjour @_profile.Pseudo. Ouvrez des packs, gérez vos cartes et aménagez vos biomes.</p>
-        </div>
-
-        <div class="bioma-stat-counter">
-            <span class="bioma-stat-number">4</span>
-            <div style="text-align: left; font-size: 0.74rem; color: var(--figma-text-soft); line-height: 1.35;">
-                <div>espèces · @_profile.TotalSpecimensCount spécimens</div>
-                <a href="/collection" style="color: var(--figma-text); font-weight: 500;">Votre collection →</a>
-            </div>
-        </div>
+<div class="bioma-page-header">
+    <div>
+        <h1 class="bioma-title">Bioma · Explorateur Simplifié</h1>
+        <p class="bioma-subtitle">
+            Connexion directe aux APIs scientifiques <strong>GBIF</strong> &amp; <strong>iNaturalist</strong> et sauvegarde dans le début de Back-Office C#.
+        </p>
     </div>
 
-    <div class="refuge-grid">
-        <!-- Colonne gauche : Pack de cartes (Figma Page 15) -->
-        <section>
-            <div class="figma-section-header">
-                <h2 class="figma-section-title">Pack de cartes</h2>
-                <a href="/tirages" class="figma-section-link" style="letter-spacing: 0.08em; text-transform: uppercase;">TIRAGES</a>
-            </div>
+    <div class="bioma-stat-counter">
+        <span class="bioma-stat-number">@_savedCards.Count</span>
+        <div style="text-align: left; font-size: 0.74rem; color: var(--figma-text-soft); line-height: 1.35;">
+            <div>cartes enregistrées</div>
+            <div style="color: var(--figma-text-muted);">Back-Office C# (EF Core)</div>
+        </div>
+    </div>
+</div>
 
-            <div style="display: flex; gap: 1.85rem; align-items: flex-start; padding-top: 0.5rem;">
-                <!-- Booster Pack Cover 3D incliné -->
-                <div class="booster-pack-card" @onclick='() => Nav.NavigateTo("/tirages")' style="cursor: pointer;">
-                    <div>
-                        <div style="font-family: var(--font-serif); font-size: 1.35rem; font-weight: 700; color: var(--figma-text);">bioma</div>
-                        <div style="font-size: 0.52rem; letter-spacing: 0.14em; color: var(--figma-text-muted); margin-top: 2px;">COLLECTION BIODIVERSITÉ</div>
-                    </div>
+<div class="refuge-grid" style="grid-template-columns: 1.35fr 1fr; gap: 2rem; align-items: start;">
+    <!-- COLONNE GAUCHE : Connexion aux APIs GBIF & iNaturalist -->
+    <section style="background: rgba(24, 48, 35, 0.55); border: 1px solid var(--figma-border); border-radius: 8px; padding: 1.35rem;">
+        <div class="figma-section-header" style="margin-bottom: 1rem;">
+            <h2 class="figma-section-title">1. Connexion APIs GBIF &amp; iNaturalist</h2>
+            <span style="font-size: 0.72rem; color: var(--figma-text-muted);">GET /api/biodiversity/search</span>
+        </div>
 
-                    <div style="width: 92px; height: 92px; border-radius: 50%; overflow: hidden; border: 1px solid rgba(229,222,201,0.4); box-shadow: 0 6px 16px rgba(0,0,0,0.35);">
-                        <img src="https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?auto=format&fit=crop&w=400&q=80"
-                             alt="Échos du vivant" style="width: 100%; height: 100%; object-fit: cover;" />
-                    </div>
+        <!-- Barre de recherche -->
+        <div style="display: flex; gap: 0.6rem; margin-bottom: 0.75rem; flex-wrap: wrap;">
+            <input type="text"
+                   @bind="_searchQuery"
+                   @bind:event="oninput"
+                   placeholder="Nom scientifique ou commun (ex: Vulpes vulpes, Lynx lynx...)"
+                   style="flex: 1; min-width: 210px; padding: 0.6rem 0.85rem; border-radius: 6px; border: 1px solid var(--figma-border); background: rgba(15, 32, 22, 0.75); color: var(--figma-text); font-size: 0.85rem;" />
 
-                    <div>
-                        <div style="font-family: var(--font-serif); font-size: 1.2rem; line-height: 1.1; color: var(--figma-text);">Échos<br />du vivant</div>
-                        <div style="font-size: 0.52rem; letter-spacing: 0.1em; color: var(--figma-text-muted); margin-top: 0.45rem;">FAUNE &amp; FLORE<br />3 POLAROÏDS</div>
-                    </div>
-                </div>
+            <button class="btn-sand" style="width: auto; padding: 0.6rem 1.2rem;" @onclick="ExecuteSearchAsync" disabled="@_isLoading">
+                <span>@(_isLoading ? "Requête en cours..." : "Interroger GBIF & iNaturalist")</span>
+            </button>
+        </div>
 
-                <!-- Détails du Pack -->
-                <div style="flex: 1; padding-top: 0.35rem;">
-                    <div style="font-size: 0.64rem; letter-spacing: 0.12em; color: var(--figma-text-muted); margin-bottom: 0.25rem; text-transform: uppercase;">
-                        PACK MIXTE
-                    </div>
-                    <h3 style="font-family: var(--font-serif); font-size: 1.55rem; font-weight: 500; margin-bottom: 0.35rem;">
-                        Échos du vivant
-                    </h3>
-                    <p style="font-size: 0.8rem; color: var(--figma-text-soft); margin-bottom: 1.1rem; line-height: 1.4;">
-                        Animaux et plantes<br />3 cartes aléatoires
-                    </p>
-
-                    <div style="margin-bottom: 0.9rem; display: flex; align-items: baseline; gap: 0.4rem;">
-                        <span style="font-family: var(--font-serif); font-size: 1.65rem; font-weight: 500;">180</span>
-                        <span style="font-size: 0.74rem; color: var(--figma-text-muted);">monnaie de jeu</span>
-                    </div>
-
-                    <button class="btn-sand" style="max-width: 245px;" @onclick='() => Nav.NavigateTo("/tirages")'>
-                        <span>Ouvrir un pack</span>
-                        <span>→</span>
-                    </button>
-
-                    <div style="margin-top: 0.75rem; margin-bottom: 1.25rem;">
-                        <a href="/tirages" style="font-size: 0.76rem; color: var(--figma-text-soft);">Raretés &amp; probabilités →</a>
-                    </div>
-
-                    <div style="display: flex; align-items: center; gap: 0.55rem; padding-top: 0.85rem; border-top: 1px solid var(--figma-border);">
-                        @foreach (var sample in _cards.Take(2))
-                        {
-                            <div style="background: var(--polaroid-bg); padding: 2px 2px 5px; border-radius: 2px; width: 34px; box-shadow: 0 3px 8px rgba(0,0,0,0.3);">
-                                <img src="@sample.ImageUrl" alt="@sample.Name"
-                                     style="width: 30px; height: 26px; object-fit: cover; display: block;" />
-                            </div>
-                        }
-                        <div style="font-size: 0.68rem; color: var(--figma-text-muted); line-height: 1.3;">
-                            <div style="color: var(--figma-text-soft);">Cartes issues de ce paquet</div>
-                            <div>2 cartes ajoutées à votre collection</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Colonne droite : Votre biome actif (Figma Page 15) -->
-        <section>
-            <div class="figma-section-header">
-                <h2 class="figma-section-title">Votre biome actif</h2>
-                <a href="/biomes" class="figma-section-link">Mes biomes →</a>
-            </div>
-
-            @if (_activeBiome != null)
+        <!-- Boutons de recherche rapide -->
+        <div style="display: flex; gap: 0.45rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem;">
+            <span style="font-size: 0.72rem; color: var(--figma-text-muted);">Exemples rapides :</span>
+            @foreach (var preset in _presets)
             {
-                <div class="biome-card-wrapper">
-                    <div class="biome-stage" style="background-image: linear-gradient(180deg, rgba(15,32,22,0.08) 0%, rgba(15,32,22,0.58) 100%), url('@_activeBiome.BackgroundImageUrl');">
-                        @foreach (var cardId in _activeBiome.ExposedCardIds)
-                        {
-                            var exposed = _cards.FirstOrDefault(c => c.Id == cardId);
-                            if (exposed != null)
-                            {
-                                <div class="biome-pedestal">
-                                    <PolaroidCard Card="exposed" Compact="true" OnSelect='(_) => Nav.NavigateTo("/biomes")' />
-                                </div>
-                            }
-                        }
-                    </div>
+                <button type="button"
+                        @onclick="() => SelectPresetAsync(preset)"
+                        style="background: rgba(229, 222, 201, 0.1); color: var(--figma-text); border: 1px solid var(--figma-border); border-radius: 999px; padding: 0.22rem 0.65rem; font-size: 0.72rem; cursor: pointer;">
+                    @preset
+                </button>
+            }
 
-                    <div class="biome-card-footer">
-                        <div>
-                            <h3 style="font-family: var(--font-serif); font-size: 1.25rem; font-weight: 500;">@_activeBiome.Name</h3>
-                            <p style="font-size: 0.74rem; color: var(--figma-text-muted);">
-                                @_activeBiome.ExposedCardIds.Count cartes exposées · @_activeBiome.BiomeType
-                            </p>
+            <div style="margin-left: auto; display: flex; gap: 0.35rem;">
+                @foreach (var src in new[] { "TOUS", "GBIF", "iNaturalist" })
+                {
+                    <button type="button"
+                            @onclick="() => _sourceFilter = src"
+                            style="background: @(_sourceFilter == src ? "var(--figma-sand)" : "transparent"); color: @(_sourceFilter == src ? "#14261C" : "var(--figma-text-soft)"); border: 1px solid var(--figma-border); border-radius: 4px; padding: 0.2rem 0.55rem; font-size: 0.7rem; font-weight: 600; cursor: pointer;">
+                        @src
+                    </button>
+                }
+            </div>
+        </div>
+
+        <!-- État des connexions -->
+        @if (_searchResult != null)
+        {
+            <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; justify-content: space-between; padding: 0.6rem 0.85rem; border-radius: 6px; background: rgba(15, 32, 22, 0.55); border: 1px solid var(--figma-border); margin-bottom: 1.1rem; font-size: 0.75rem;">
+                <span>@_searchResult.StatusMessage</span>
+                <div style="display: flex; gap: 0.6rem;">
+                    <span style="padding: 0.15rem 0.5rem; border-radius: 4px; background: rgba(93, 176, 117, 0.18); border: 1px solid rgba(93, 176, 117, 0.4);">
+                        GBIF : @_searchResult.GbifCount
+                    </span>
+                    <span style="padding: 0.15rem 0.5rem; border-radius: 4px; background: rgba(217, 155, 56, 0.18); border: 1px solid rgba(217, 155, 56, 0.4);">
+                        iNaturalist : @_searchResult.InaturalistCount
+                    </span>
+                </div>
+            </div>
+
+            <!-- Liste des observations retournées par GBIF et iNaturalist -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.9rem;">
+                @foreach (var obs in FilteredObservations)
+                {
+                    <div style="background: rgba(15, 32, 22, 0.65); border: 1px solid var(--figma-border); border-radius: 6px; overflow: hidden; display: flex; flex-direction: column;">
+                        <div style="height: 120px; position: relative; background: #0d1b13;">
+                            <img src="@obs.ImageUrl" alt="@obs.ScientificName" style="width: 100%; height: 100%; object-fit: cover;" />
+                            <span style="position: absolute; top: 6px; left: 6px; padding: 2px 7px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; background: @(obs.SourceApi == "GBIF" ? "#2E6F40" : "#C87D20"); color: #fff;">
+                                @obs.SourceApi
+                            </span>
                         </div>
 
-                        <button class="btn-sand" style="width: auto; min-width: 195px;" @onclick='() => Nav.NavigateTo("/biomes")'>
-                            <span>Entrer dans ma vitrine</span>
-                            <span>→</span>
-                        </button>
+                        <div style="padding: 0.7rem; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
+                            <div>
+                                <div style="font-weight: 600; font-size: 0.86rem; color: var(--figma-text);">@obs.CommonName</div>
+                                <div style="font-style: italic; font-size: 0.74rem; color: var(--figma-text-soft); margin-bottom: 0.4rem;">@obs.ScientificName</div>
+                                <div style="font-size: 0.68rem; color: var(--figma-text-muted); line-height: 1.4;">
+                                    <div>📍 @obs.CountryOrPlace</div>
+                                    @if (obs.Latitude.HasValue && obs.Longitude.HasValue)
+                                    {
+                                        <div>🌐 @obs.Latitude.Value.ToString("F2")°, @obs.Longitude.Value.ToString("F2")°</div>
+                                    }
+                                    <div>📅 @obs.ObservedDate · @obs.Family</div>
+                                </div>
+                            </div>
+
+                            <button type="button"
+                                    class="btn-sand"
+                                    style="margin-top: 0.65rem; padding: 0.4rem 0.65rem; font-size: 0.74rem;"
+                                    @onclick="() => SaveToBackOfficeAsync(obs)">
+                                <span>+ Ajouter au Back-Office C#</span>
+                            </button>
+                        </div>
                     </div>
+                }
+            </div>
+        }
+    </section>
+
+    <!-- COLONNE DROITE : Début du Back-Office C# (Cartes enregistrées) -->
+    <section style="background: rgba(24, 48, 35, 0.55); border: 1px solid var(--figma-border); border-radius: 8px; padding: 1.35rem;">
+        <div class="figma-section-header" style="margin-bottom: 0.85rem;">
+            <h2 class="figma-section-title">2. Back-Office C# (Collection)</h2>
+            <span style="font-size: 0.72rem; color: var(--figma-text-muted);">BiomaDbContext</span>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_notification))
+        {
+            <div style="padding: 0.5rem 0.75rem; margin-bottom: 0.85rem; border-radius: 5px; background: rgba(93, 176, 117, 0.2); border: 1px solid rgba(93, 176, 117, 0.45); font-size: 0.76rem; color: var(--figma-text);">
+                @_notification
+            </div>
+        }
+
+        <div style="display: flex; flex-wrap: wrap; gap: 1rem; justify-content: flex-start;">
+            @foreach (var card in _savedCards)
+            {
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 0.35rem;">
+                    <PolaroidCard Card="card" />
+                    <div style="font-size: 0.65rem; color: var(--figma-text-muted); max-width: 150px; text-align: center;">
+                        @card.CoordinatesText
+                    </div>
+                    <button type="button"
+                            @onclick="() => DeleteCardAsync(card.Id)"
+                            style="background: transparent; border: 1px solid rgba(255,120,120,0.35); color: #ffb3b3; border-radius: 4px; padding: 0.15rem 0.55rem; font-size: 0.66rem; cursor: pointer;">
+                        Supprimer
+                    </button>
                 </div>
             }
-        </section>
-    </div>
-}
+        </div>
+
+        <!-- Résumé des routes REST exposées par le Back-Office C# -->
+        <div style="margin-top: 1.4rem; padding-top: 0.9rem; border-top: 1px solid var(--figma-border); font-size: 0.72rem; color: var(--figma-text-muted); line-height: 1.6;">
+            <div style="font-weight: 600; color: var(--figma-text-soft); margin-bottom: 0.25rem;">Endpoints REST du Back-Office C# (Bioma.Api) :</div>
+            <div>• <code>GET /api/biodiversity/search?query=Vulpes vulpes</code></div>
+            <div>• <code>GET /api/biodiversity/gbif?query=Lynx lynx</code></div>
+            <div>• <code>GET /api/biodiversity/inaturalist?query=Alcedo atthis</code></div>
+            <div>• <code>GET /api/biodiversity/cards</code> &amp; <code>POST /api/biodiversity/cards</code></div>
+        </div>
+    </section>
+</div>
 
 @code {
-    private PlayerProfileDto? _profile;
-    private List<CardDto> _cards = new();
-    private BiomeShowcase? _activeBiome;
+    private readonly string[] _presets = ["Vulpes vulpes", "Lynx lynx", "Alcedo atthis", "Ursus arctos"];
+    private string _searchQuery = "Vulpes vulpes";
+    private string _sourceFilter = "TOUS";
+    private bool _isLoading;
+    private string? _notification;
+
+    private ApiSearchResultDto? _searchResult;
+    private List<CardDto> _savedCards = new();
+
+    private IEnumerable<ExternalObservationDto> FilteredObservations =>
+        _searchResult?.Observations.Where(o =>
+            _sourceFilter == "TOUS" || o.SourceApi.Equals(_sourceFilter, StringComparison.OrdinalIgnoreCase))
+        ?? Enumerable.Empty<ExternalObservationDto>();
 
     protected override async Task OnInitializedAsync()
     {
-        _profile = await GameService.GetPlayerProfileAsync();
-        _cards = await GameService.GetPlayerCollectionAsync();
-        var biomes = await GameService.GetPlayerBiomesAsync();
-        _activeBiome = biomes.FirstOrDefault(b => b.IsActive) ?? biomes.FirstOrDefault();
+        _savedCards = await BiodiversityService.GetSavedCardsAsync();
+        await ExecuteSearchAsync();
+    }
+
+    private async Task SelectPresetAsync(string preset)
+    {
+        _searchQuery = preset;
+        await ExecuteSearchAsync();
+    }
+
+    private async Task ExecuteSearchAsync()
+    {
+        _isLoading = true;
+        _notification = null;
+        try
+        {
+            _searchResult = await BiodiversityService.SearchApisAsync(_searchQuery, limitPerSource: 3);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SaveToBackOfficeAsync(ExternalObservationDto obs)
+    {
+        var saved = await BiodiversityService.SaveObservationToBackOfficeAsync(obs);
+        _savedCards = await BiodiversityService.GetSavedCardsAsync();
+        _notification = $"Carte « {saved.Name} » ({saved.SourceApi}) enregistrée dans le Back-Office C#.";
+    }
+
+    private async Task DeleteCardAsync(Guid id)
+    {
+        await BiodiversityService.DeleteCardAsync(id);
+        _savedCards = await BiodiversityService.GetSavedCardsAsync();
+        _notification = "Carte supprimée du Back-Office C#.";
     }
 }

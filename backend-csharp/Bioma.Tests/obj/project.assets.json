@@ -2024,23 +2024,23 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\boultchi\\.nuget\\packages\\": {},
+    "C:\\Users\\brunelo\\.nuget\\packages\\": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "W:\\bioma\\backend-csharp\\Bioma.Tests\\Bioma.Tests.csproj",
+      "projectUniqueName": "C:\\Users\\brunelo\\Downloads\\Bioma-main\\Bioma\\backend-csharp\\Bioma.Tests\\Bioma.Tests.csproj",
       "projectName": "Bioma.Tests",
-      "projectPath": "W:\\bioma\\backend-csharp\\Bioma.Tests\\Bioma.Tests.csproj",
-      "packagesPath": "C:\\Users\\boultchi\\.nuget\\packages\\",
-      "outputPath": "W:\\bioma\\backend-csharp\\Bioma.Tests\\obj\\",
+      "projectPath": "C:\\Users\\brunelo\\Downloads\\Bioma-main\\Bioma\\backend-csharp\\Bioma.Tests\\Bioma.Tests.csproj",
+      "packagesPath": "C:\\Users\\brunelo\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\brunelo\\Downloads\\Bioma-main\\Bioma\\backend-csharp\\Bioma.Tests\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
       ],
       "configFilePaths": [
-        "C:\\Users\\boultchi\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\brunelo\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
@@ -2056,14 +2056,14 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "projectReferences": {
-            "W:\\bioma\\backend-csharp\\Bioma.Application\\Bioma.Application.csproj": {
-              "projectPath": "W:\\bioma\\backend-csharp\\Bioma.Application\\Bioma.Application.csproj"
+            "C:\\Users\\brunelo\\Downloads\\Bioma-main\\Bioma\\backend-csharp\\Bioma.Application\\Bioma.Application.csproj": {
+              "projectPath": "C:\\Users\\brunelo\\Downloads\\Bioma-main\\Bioma\\backend-csharp\\Bioma.Application\\Bioma.Application.csproj"
             },
-            "W:\\bioma\\backend-csharp\\Bioma.Domain\\Bioma.Domain.csproj": {
-              "projectPath": "W:\\bioma\\backend-csharp\\Bioma.Domain\\Bioma.Domain.csproj"
+            "C:\\Users\\brunelo\\Downloads\\Bioma-main\\Bioma\\backend-csharp\\Bioma.Domain\\Bioma.Domain.csproj": {
+              "projectPath": "C:\\Users\\brunelo\\Downloads\\Bioma-main\\Bioma\\backend-csharp\\Bioma.Domain\\Bioma.Domain.csproj"
             },
-            "W:\\bioma\\backend-csharp\\Bioma.Infrastructure\\Bioma.Infrastructure.csproj": {
-              "projectPath": "W:\\bioma\\backend-csharp\\Bioma.Infrastructure\\Bioma.Infrastructure.csproj"
+            "C:\\Users\\brunelo\\Downloads\\Bioma-main\\Bioma\\backend-csharp\\Bioma.Infrastructure\\Bioma.Infrastructure.csproj": {
+              "projectPath": "C:\\Users\\brunelo\\Downloads\\Bioma-main\\Bioma\\backend-csharp\\Bioma.Infrastructure\\Bioma.Infrastructure.csproj"
             }
           }
         }

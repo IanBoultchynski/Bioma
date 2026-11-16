@@ -1,8 +1,11 @@
 @page "/"
 @page "/refuge"
+@implements IDisposable
 @using Bioma.Application.DTOs
 @using Bioma.Application.Interfaces
 @inject IBiomaGameService BiodiversityService
+@inject IUserProfileService UserService
+@inject UserSessionState Session
 
 <div class="bioma-page-header">
     <div>
@@ -97,13 +100,13 @@
                             <div>
                                 <div style="font-weight: 600; font-size: 0.86rem; color: var(--figma-text);">@obs.CommonName</div>
                                 <div style="font-style: italic; font-size: 0.74rem; color: var(--figma-text-soft); margin-bottom: 0.4rem;">@obs.ScientificName</div>
-                                <div style="font-size: 0.68rem; color: var(--figma-text-muted); line-height: 1.4;">
-                                    <div>📍 @obs.CountryOrPlace</div>
+                                <div style="font-size: 0.68rem; color: var(--figma-text-soft); line-height: 1.45;">
+                                    <div><span style="color: var(--figma-text-muted); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em;">Lieu</span> @obs.CountryOrPlace</div>
                                     @if (obs.Latitude.HasValue && obs.Longitude.HasValue)
                                     {
-                                        <div>🌐 @obs.Latitude.Value.ToString("F2")°, @obs.Longitude.Value.ToString("F2")°</div>
+                                        <div><span style="color: var(--figma-text-muted); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em;">GPS</span> @obs.Latitude.Value.ToString("F2")°, @obs.Longitude.Value.ToString("F2")°</div>
                                     }
-                                    <div>📅 @obs.ObservedDate · @obs.Family</div>
+                                    <div><span style="color: var(--figma-text-muted); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em;">Date</span> @obs.ObservedDate · @obs.Family</div>
                                 </div>
                             </div>
 
@@ -177,6 +180,21 @@
             _sourceFilter == "TOUS" || o.SourceApi.Equals(_sourceFilter, StringComparison.OrdinalIgnoreCase))
         ?? Enumerable.Empty<ExternalObservationDto>();
 
+    protected override void OnInitialized()
+    {
+        Session.OnChange += HandleSessionChanged;
+    }
+
+    private void HandleSessionChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Session.OnChange -= HandleSessionChanged;
+    }
+
     protected override async Task OnInitializedAsync()
     {
         _savedCards = await BiodiversityService.GetSavedCardsAsync();
@@ -205,15 +223,35 @@
 
     private async Task SaveToBackOfficeAsync(ExternalObservationDto obs)
     {
-        var saved = await BiodiversityService.SaveObservationToBackOfficeAsync(obs);
+        var saved = await BiodiversityService.SaveObservationToBackOfficeAsync(obs, Session.CurrentProfile?.Id);
         _savedCards = await BiodiversityService.GetSavedCardsAsync();
-        _notification = $"Carte « {saved.Name} » ({saved.SourceApi}) enregistrée dans le Back-Office C#.";
+        if (Session.CurrentProfile is not null)
+        {
+            var refreshed = await UserService.GetProfileWithInventoryAsync(Session.CurrentProfile.Id);
+            if (refreshed is not null)
+            {
+                Session.SetSession(refreshed);
+            }
+            _notification = $"Carte « {saved.Name} » ({saved.SourceApi}) enregistrée et ajoutée à l'inventaire de {Session.CurrentProfile.Username}.";
+        }
+        else
+        {
+            _notification = $"Carte « {saved.Name} » ({saved.SourceApi}) enregistrée dans la base de données.";
+        }
     }
 
     private async Task DeleteCardAsync(Guid id)
     {
         await BiodiversityService.DeleteCardAsync(id);
         _savedCards = await BiodiversityService.GetSavedCardsAsync();
-        _notification = "Carte supprimée du Back-Office C#.";
+        if (Session.CurrentProfile is not null)
+        {
+            var refreshed = await UserService.GetProfileWithInventoryAsync(Session.CurrentProfile.Id);
+            if (refreshed is not null)
+            {
+                Session.SetSession(refreshed);
+            }
+        }
+        _notification = "Carte supprimée de la base de données.";
     }
 }

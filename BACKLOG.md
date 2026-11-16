@@ -19,13 +19,13 @@ Ce document recense l'intégralité des User Stories du projet **Bioma** et leur
 
 ## Suivi des User Stories par Épique
 
-### 1. Utilisateurs & Profil (15 pts)
-- [ ] **US-01** *(3 pts)* : En tant que joueur, je souhaite me connecter de manière sécurisée afin de protéger mon compte et mes cartes.
-- [ ] **US-02** *(2 pts)* : En tant que joueur, je souhaite créer un profil utilisateur afin d'avoir une identité unique dans le jeu.
-- [ ] **US-03** *(2 pts)* : En tant que joueur, je souhaite consulter mon deck et mon inventaire afin de voir la liste exacte des cartes que je possède.
-- [ ] **US-04** *(5 pts)* : En tant que joueur, je souhaite que ma progression soit automatiquement sauvegardée sur le cloud afin de ne perdre aucune de mes données si je change de téléphone.
-- [ ] **US-05** *(1 pt)* : En tant que joueur, je souhaite modifier mon avatar de profil afin de personnaliser mon compte.
-- [ ] **US-06** *(2 pts)* : En tant que joueur, je souhaite consulter mes statistiques globales (nombre de cartes, victoires) afin de suivre ma progression globale.
+### 1. Utilisateurs & Profil (15 pts) — ✅ Terminé
+- [x] **US-01** *(3 pts)* : En tant que joueur, je souhaite me connecter de manière sécurisée afin de protéger mon compte et mes cartes.
+- [x] **US-02** *(2 pts)* : En tant que joueur, je souhaite créer un profil utilisateur afin d'avoir une identité unique dans le jeu.
+- [x] **US-03** *(2 pts)* : En tant que joueur, je souhaite consulter mon deck et mon inventaire afin de voir la liste exacte des cartes que je possède.
+- [x] **US-04** *(5 pts)* : En tant que joueur, je souhaite que ma progression soit automatiquement sauvegardée sur le cloud afin de ne perdre aucune de mes données si je change de téléphone.
+- [x] **US-05** *(1 pt)* : En tant que joueur, je souhaite modifier mon avatar de profil afin de personnaliser mon compte.
+- [x] **US-06** *(2 pts)* : En tant que joueur, je souhaite consulter mes statistiques globales (nombre de cartes, victoires) afin de suivre ma progression globale.
 
 ### 2. Capture IRL (31 pts)
 - [ ] **US-07** *(2 pts)* : En tant que joueur, je souhaite ouvrir le module "Instantané" et autoriser l'accès à ma caméra afin de prendre des photos depuis l'application.

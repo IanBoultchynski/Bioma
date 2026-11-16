@@ -13,6 +13,8 @@ builder.Services.AddDbContext<BiomaDbContext>(options =>
     BiomaDbConfiguration.Configure(options, builder.Configuration, builder.Environment.ContentRootPath);
 });
 
+builder.Services.AddScoped<IUserProfileService, UserProfileService>();
+
 builder.Services.AddHttpClient<IBiomaGameService, BiomaGameService>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(8);

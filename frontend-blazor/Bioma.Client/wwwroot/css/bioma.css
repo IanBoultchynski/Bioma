@@ -198,16 +198,16 @@ a {
 }
 
 .bioma-page-header::after {
-    content: "✦";
+    content: "";
     position: absolute;
-    bottom: -9px;
+    bottom: -5px;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translateX(-50%) rotate(45deg);
+    width: 9px;
+    height: 9px;
     background: var(--figma-bg);
-    padding: 0 0.6rem;
-    color: var(--figma-gold);
-    font-size: 0.75rem;
-    opacity: 0.75;
+    border: 1.5px solid var(--figma-gold);
+    opacity: 0.85;
 }
 
 .bioma-title {
@@ -462,20 +462,17 @@ a {
     border-top: 1px dashed rgba(24, 40, 31, 0.16);
 }
 
-.polaroid-dot {
+.polaroid-source-icon {
     display: inline-block;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #3B8EA5;
+    flex-shrink: 0;
     margin-right: 4px;
-    box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
+    vertical-align: middle;
 }
 
-.polaroid-dot.commune { background: #5B9A68; }
-.polaroid-dot.peu-commune { background: #4A8DB7; }
-.polaroid-dot.rare { background: #D4922A; }
-.polaroid-dot.hybride { background: #8E5BC4; }
+.polaroid-source-icon.commune { color: #5B9A68; }
+.polaroid-source-icon.peu-commune { color: #4A8DB7; }
+.polaroid-source-icon.rare { color: #D4922A; }
+.polaroid-source-icon.hybride { color: #8E5BC4; }
 
 /* =========================================================
    BOOSTER PACK ("ÉCHOS DU VIVANT")
@@ -727,12 +724,317 @@ a {
     cursor: pointer;
 }
 
+/* =========================================================
+   EFFETS IA & GLASSMORPHISM CYBER-BOTANIQUE (SCREENSHOT MATCH)
+   ========================================================= */
+.ai-capsule-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.36rem 1.05rem;
+    border-radius: 9999px;
+    background: linear-gradient(180deg, #091D13 0%, #040E08 100%);
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    box-shadow: 
+        inset 0 1px 1px 0 rgba(255, 255, 255, 0.55),
+        inset 0 -1px 2px 0 rgba(0, 0, 0, 0.8),
+        0 4px 14px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(14px);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    user-select: none;
+}
+
+.ai-capsule-pill:hover {
+    border-color: rgba(255, 255, 255, 0.7);
+    box-shadow: 
+        inset 0 1px 2px 0 rgba(255, 255, 255, 0.75),
+        inset 0 -1px 2px 0 rgba(0, 0, 0, 0.9),
+        0 6px 20px rgba(0, 0, 0, 0.7),
+        0 0 14px rgba(74, 222, 128, 0.25);
+    transform: translateY(-1px);
+}
+
+.ai-capsule-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+    flex-shrink: 0;
+    color: var(--figma-gold);
+    filter: drop-shadow(0 0 6px rgba(222, 184, 97, 0.45));
+    transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.ai-capsule-icon.cloud-icon {
+    color: #68C587;
+    filter: drop-shadow(0 0 6px rgba(104, 197, 135, 0.5));
+}
+
+.ai-capsule-icon.user-icon {
+    color: var(--figma-gold);
+    filter: drop-shadow(0 0 6px rgba(222, 184, 97, 0.5));
+}
+
+.ai-capsule-pill:hover .ai-capsule-icon {
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 10px rgba(222, 184, 97, 0.8));
+}
+
+.ai-capsule-pill:hover .ai-capsule-icon.cloud-icon {
+    filter: drop-shadow(0 0 10px rgba(104, 197, 135, 0.85));
+}
+
+.ai-capsule-text {
+    font-family: var(--font-sans);
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #F3F6F4;
+    letter-spacing: 0.025em;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.ai-capsule-sep {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.25);
+    font-weight: 300;
+}
+
+.ai-capsule-accent {
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--figma-gold);
+    letter-spacing: 0.02em;
+}
+
+/* Panneaux avec bordure spéculaire haute technologie */
+.ai-panel {
+    background: linear-gradient(170deg, rgba(23, 48, 35, 0.92) 0%, rgba(12, 26, 19, 0.97) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 
+        inset 0 1px 1px 0 rgba(255, 255, 255, 0.2),
+        0 14px 32px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(16px);
+    position: relative;
+}
+
+.ai-panel-glow {
+    border-color: rgba(222, 184, 97, 0.35);
+    box-shadow: 
+        inset 0 1px 1px 0 rgba(255, 255, 255, 0.3),
+        0 14px 34px rgba(0, 0, 0, 0.4),
+        0 0 20px rgba(104, 197, 135, 0.1);
+}
+
+/* Onglets de contrôle pour modifier les éléments */
+.settings-nav-tabs {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--figma-border);
+    padding-bottom: 0.75rem;
+    margin-bottom: 1.35rem;
+}
+
+.settings-tab-btn {
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--figma-text-soft);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.settings-tab-btn:hover {
+    color: var(--figma-text);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.settings-tab-btn.active {
+    background: linear-gradient(180deg, #163625 0%, #0D2418 100%);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: var(--figma-cream);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Badges de stats sans emojis */
+.stat-pill-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    padding: 0.2rem 0.45rem;
+    border-radius: 4px;
+    background: rgba(24, 40, 31, 0.1);
+    color: #213529;
+}
+
+.stat-pill-tag.atk { background: rgba(212, 146, 42, 0.16); color: #8A5508; }
+.stat-pill-tag.def { background: rgba(74, 141, 183, 0.16); color: #17547C; }
+.stat-pill-tag.spd { background: rgba(104, 197, 135, 0.18); color: #1E6637; }
+.profile-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    background:
+        radial-gradient(circle at 85% 20%, rgba(222, 184, 97, 0.14) 0%, transparent 50%),
+        linear-gradient(165deg, rgba(35, 69, 52, 0.94) 0%, rgba(18, 38, 28, 0.98) 100%);
+    border: 1px solid var(--figma-border-strong);
+    border-radius: 14px;
+    padding: 1.4rem 1.75rem;
+    margin-bottom: 1.75rem;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.profile-hero-left {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.profile-avatar-ring {
+    width: 74px;
+    height: 74px;
+    border-radius: 50%;
+    padding: 3px;
+    background: linear-gradient(135deg, var(--figma-gold), #8E6E32);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+    flex-shrink: 0;
+}
+
+.profile-avatar-ring img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+    background: #12261C;
+}
+
+
+
+.stats-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.9rem;
+}
+
+.stat-kpi-card {
+    background: linear-gradient(180deg, rgba(18, 38, 28, 0.88) 0%, rgba(13, 28, 20, 0.94) 100%);
+    border: 1px solid var(--figma-border-strong);
+    border-radius: 10px;
+    padding: 1rem 0.9rem;
+    text-align: center;
+    transition: transform 0.18s ease, border-color 0.18s ease;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.stat-kpi-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(222, 184, 97, 0.45);
+}
+
+.stat-kpi-value {
+    font-family: var(--font-serif);
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.05;
+    color: var(--figma-gold);
+    margin-bottom: 0.25rem;
+}
+
+.stat-kpi-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--figma-text);
+}
+
+.stat-kpi-sub {
+    font-size: 0.68rem;
+    color: var(--figma-text-muted);
+    margin-top: 0.15rem;
+}
+
+.cloud-token-box {
+    background: #0E1F16;
+    border: 1px dashed rgba(222, 184, 97, 0.5);
+    border-radius: 8px;
+    padding: 0.75rem 0.95rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin: 0.75rem 0;
+}
+
+.cloud-token-code {
+    font-family: monospace;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--figma-gold);
+    letter-spacing: 0.05em;
+}
+
+.avatar-emblems-row {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin: 0.75rem 0;
+}
+
+.avatar-emblem-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    padding: 2px;
+    background: rgba(15, 32, 23, 0.7);
+    border: 2px solid var(--figma-border-strong);
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.avatar-emblem-btn:hover,
+.avatar-emblem-btn.active {
+    border-color: var(--figma-gold);
+    transform: scale(1.07);
+    box-shadow: 0 0 12px rgba(222, 184, 97, 0.35);
+}
+
+.avatar-emblem-btn img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    display: block;
+}
+
+.upload-dropzone {
+    border: 1.5px dashed var(--figma-border-strong);
+    background: rgba(15, 32, 23, 0.55);
+    border-radius: 8px;
+    padding: 0.7rem 0.9rem;
+    margin-bottom: 0.75rem;
+    transition: border-color 0.18s ease;
+}
+
+.upload-dropzone:hover {
+    border-color: var(--figma-gold);
+}
+
 @media (max-width: 980px) {
     .refuge-grid,
     .collection-layout,
     .biomes-grid,
     .auctions-grid,
-    .polaroid-grid {
+    .polaroid-grid,
+    .stats-kpi-grid {
         grid-template-columns: 1fr;
     }
     .filter-bar {

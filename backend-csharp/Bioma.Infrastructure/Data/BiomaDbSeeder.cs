@@ -1,235 +1,428 @@
 using Bioma.Domain.Entities;
 using Bioma.Domain.Enums;
+using Bioma.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Bioma.Infrastructure.Data;
 
 /// <summary>
-/// Création automatique du schéma et initialisation des données de base (Espèces, Utilisateurs, Inventaire & Progression, Hotspots, Quiz).
+/// Initialise la structure relationnelle de la base de données (PostgreSQL ou SQLite fallback)
+/// et injecte automatiquement le socle de jeu indispensable (espèces réelles, comptes fondateurs,
+/// hotspots d'expéditions et questions scientifiques).
 /// </summary>
 public static class BiomaDbSeeder
 {
+    public const string DefaultPassword = "Bioma2026!";
+
     public static async Task SeedAsync(BiomaDbContext db)
     {
-        await db.Database.EnsureCreatedAsync();
+        // 1. Génération automatique du schéma relationnel (support Supabase & SQLite)
+        var databaseCreator = db.Database.GetService<IDatabaseCreator>() as IRelationalDatabaseCreator;
+        bool needCreate = false;
 
-        var foxCardId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-        var kingfisherCardId = Guid.Parse("22222222-2222-2222-2222-222222222222");
-
-        if (!await db.Cards.AnyAsync())
+        try
         {
-            db.Cards.AddRange(
-                new SpeciesCard
-                {
-                    Id = foxCardId,
-                    CommonName = "Renard roux",
-                    ScientificName = "Vulpes vulpes",
-                    Family = "Canidae",
-                    Kingdom = "Animalia",
-                    SourceApi = "GBIF",
-                    ExternalId = "gbif-2434559",
-                    Latitude = 47.4684,
-                    Longitude = -0.5562,
-                    CountryOrPlace = "France (Vallée de la Loire)",
-                    ObservedDate = "2025-04-12",
-                    Rarity = CardRarity.PeuCommune,
-                    Biome = BiomeType.ForetTemperee,
-                    AverageWeightKg = 7.5,
-                    DangerScore = 35,
-                    HabitatDescription = "Forêts tempérées, lisières, bocages et plaines.",
-                    BiologicalDescription = "Mammifère carnivore opportuniste de la famille des Canidés, doté d'une ouïe fine capable de détecter les rongeurs sous la neige.",
-                    BaseAttack = 48,
-                    BaseDefense = 38,
-                    BaseSpeed = 62,
-                    ImageUrl = "https://images.unsplash.com/photo-1474511320723-9a56873867b5?auto=format&fit=crop&w=600&q=80"
-                },
-                new SpeciesCard
-                {
-                    Id = kingfisherCardId,
-                    CommonName = "Martin-pêcheur d'Europe",
-                    ScientificName = "Alcedo atthis",
-                    Family = "Alcedinidae",
-                    Kingdom = "Animalia",
-                    SourceApi = "iNaturalist",
-                    ExternalId = "inat-4829104",
-                    Latitude = 43.5512,
-                    Longitude = 4.6214,
-                    CountryOrPlace = "France (Camargue)",
-                    ObservedDate = "2025-05-03",
-                    Rarity = CardRarity.Rare,
-                    Biome = BiomeType.ZoneHumide,
-                    AverageWeightKg = 0.04,
-                    DangerScore = 10,
-                    HabitatDescription = "Rivières calmes, étangs poissonneux et roselières.",
-                    BiologicalDescription = "Oiseau plongeur au plumage bleu-vert iridescent qui capture de petits poissons en piqué rapide depuis un perchoir.",
-                    BaseAttack = 36,
-                    BaseDefense = 25,
-                    BaseSpeed = 78,
-                    ImageUrl = "https://images.unsplash.com/photo-1444464666168-49d633b86797?auto=format&fit=crop&w=600&q=80"
-                }
-            );
-            await db.SaveChangesAsync();
+            var conn = db.Database.GetDbConnection();
+            if (conn.State != System.Data.ConnectionState.Open)
+            {
+                await conn.OpenAsync();
+            }
+            using var cmd = conn.CreateCommand();
+            bool isPg = db.Database.ProviderName?.Contains("Npgsql") == true;
+            cmd.CommandText = isPg
+                ? "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'SpeciesCards');"
+                : "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='SpeciesCards';";
+            var result = await cmd.ExecuteScalarAsync();
+            if (result is bool b)
+            {
+                needCreate = !b;
+            }
+            else if (result != null && long.TryParse(result.ToString(), out var count))
+            {
+                needCreate = count == 0;
+            }
+            else
+            {
+                needCreate = true;
+            }
+        }
+        catch
+        {
+            needCreate = true;
         }
 
-        if (!await db.Players.AnyAsync())
+        if (needCreate)
         {
-            var playerAlphaId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-            var playerBetaId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
-
-            db.Players.AddRange(
-                new PlayerProfile
+            Console.WriteLine("[Bioma] Initialisation du schéma relationnel (Création des tables)...");
+            if (databaseCreator != null)
+            {
+                try
                 {
-                    Id = playerAlphaId,
-                    Username = "ExplorateurAlpha",
-                    Email = "alpha@bioma.local",
-                    PasswordHash = "DEMO_HASH_ALPHA",
-                    AvatarUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
-                    VirtualCurrency = 1250,
-                    ExperiencePoints = 640,
-                    Level = 4,
-                    Energy = 100,
-                    EloRating = 1120,
-                    TotalVictories = 7,
-                    TotalDefeats = 3,
-                    PushNotificationsEnabled = true
-                },
-                new PlayerProfile
-                {
-                    Id = playerBetaId,
-                    Username = "NaturalisteBeta",
-                    Email = "beta@bioma.local",
-                    PasswordHash = "DEMO_HASH_BETA",
-                    AvatarUrl = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80",
-                    VirtualCurrency = 800,
-                    ExperiencePoints = 320,
-                    Level = 2,
-                    Energy = 90,
-                    EloRating = 1040,
-                    TotalVictories = 4,
-                    TotalDefeats = 2,
-                    PushNotificationsEnabled = true
+                    await databaseCreator.CreateTablesAsync();
+                    Console.WriteLine("[Bioma] Schéma de tables créé avec succès !");
                 }
-            );
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Bioma] CreateTablesAsync a renvoyé : {ex.Message}. Tentative EnsureCreatedAsync...");
+                    await db.Database.EnsureCreatedAsync();
+                }
+            }
+            else
+            {
+                await db.Database.EnsureCreatedAsync();
+            }
+        }
 
-            var alphaFoxInstanceId = Guid.Parse("cccccccc-1111-1111-1111-111111111111");
-            var alphaKingfisherInstanceId = Guid.Parse("cccccccc-2222-2222-2222-222222222222");
+        // 2. Starter-pack d'espèces scientifiques réelles (GBIF / iNaturalist)
+        var fox = await db.Cards.FirstOrDefaultAsync(c => c.ScientificName == "Vulpes vulpes");
+        if (fox is null)
+        {
+            fox = new SpeciesCard
+            {
+                Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                CommonName = "Renard roux",
+                ScientificName = "Vulpes vulpes",
+                Family = "Canidae",
+                Kingdom = "Animalia",
+                SourceApi = "GBIF",
+                ExternalId = "gbif-vulpes-01",
+                ImageUrl = "https://images.unsplash.com/photo-1516934024742-b461fba47600?auto=format&fit=crop&w=800&q=80",
+                Latitude = 46.52,
+                Longitude = 2.45,
+                CountryOrPlace = "France, Forêts tempérées",
+                Rarity = CardRarity.Commune,
+                Biome = BiomeType.ForetTemperee,
+                AverageWeightKg = 7.5,
+                DangerScore = 25,
+                BaseAttack = 40,
+                BaseDefense = 35,
+                BaseSpeed = 55,
+                HabitatDescription = "Forêts boréales, campagnes bocagères et lisières tempérées.",
+                BiologicalDescription = "Canidé omnivore très adaptable doté d'une ouïe fine capable de repérer des rongeurs sous la neige."
+            };
+            db.Cards.Add(fox);
+        }
 
+        var lion = await db.Cards.FirstOrDefaultAsync(c => c.ScientificName == "Panthera leo");
+        if (lion is null)
+        {
+            lion = new SpeciesCard
+            {
+                Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
+                CommonName = "Lion d'Afrique",
+                ScientificName = "Panthera leo",
+                Family = "Felidae",
+                Kingdom = "Animalia",
+                SourceApi = "iNaturalist",
+                ExternalId = "inat-lion-01",
+                ImageUrl = "https://images.unsplash.com/photo-1546182990-dffeafbe841d?auto=format&fit=crop&w=800&q=80",
+                Latitude = -2.33,
+                Longitude = 34.83,
+                CountryOrPlace = "Tanzanie, Parc National du Serengeti",
+                Rarity = CardRarity.Rare,
+                Biome = BiomeType.Savane,
+                AverageWeightKg = 190.0,
+                DangerScore = 85,
+                BaseAttack = 80,
+                BaseDefense = 65,
+                BaseSpeed = 60,
+                HabitatDescription = "Savanes herbeuses et plaines boisées ouvertes d'Afrique subsaharienne.",
+                BiologicalDescription = "Grand prédateur grégaire chassant en harde organisée, doté d'une mâchoire puissante et d'un rugissement audible à 8 km."
+            };
+            db.Cards.Add(lion);
+        }
+
+        var eagle = await db.Cards.FirstOrDefaultAsync(c => c.ScientificName == "Haliaeetus leucocephalus");
+        if (eagle is null)
+        {
+            eagle = new SpeciesCard
+            {
+                Id = Guid.Parse("33333333-3333-3333-3333-333333333333"),
+                CommonName = "Pygargue à tête blanche",
+                ScientificName = "Haliaeetus leucocephalus",
+                Family = "Accipitridae",
+                Kingdom = "Animalia",
+                SourceApi = "GBIF",
+                ExternalId = "gbif-eagle-01",
+                ImageUrl = "https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?auto=format&fit=crop&w=800&q=80",
+                Latitude = 57.05,
+                Longitude = -135.33,
+                CountryOrPlace = "Alaska, États-Unis",
+                Rarity = CardRarity.Rare,
+                Biome = BiomeType.ForetTemperee,
+                AverageWeightKg = 5.2,
+                DangerScore = 50,
+                BaseAttack = 65,
+                BaseDefense = 45,
+                BaseSpeed = 75,
+                HabitatDescription = "Zones côtières, grands fleuves et lacs riches en poissons d'Amérique du Nord.",
+                BiologicalDescription = "Rapace majestueux muni de deux fovéas par œil pour une acuité visuelle exceptionnelle en piqué aérien."
+            };
+            db.Cards.Add(eagle);
+        }
+
+        await db.SaveChangesAsync();
+
+        // 3. Comptes de test de l'équipe (Ian & Mohamed Arfaoui)
+        var hashedPwd = UserProfileService.HashPassword(DefaultPassword);
+
+        var ianUser = await db.Players
+            .Include(p => p.InventoryCards)
+            .FirstOrDefaultAsync(p => p.Username == "Ian" || p.Email == "ian@bioma.fr");
+
+        if (ianUser is null)
+        {
+            ianUser = new PlayerProfile
+            {
+                Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+                Username = "Ian",
+                Email = "ian@bioma.fr",
+                PasswordHash = hashedPwd,
+                AvatarUrl = UserProfileService.BuildDefaultAvatarSvg("Ian"),
+                VirtualCurrency = 1000,
+                ExperiencePoints = 250,
+                Level = 2,
+                Energy = 100,
+                EloRating = 1100,
+                TotalVictories = 5,
+                TotalDefeats = 1,
+                PushNotificationsEnabled = true,
+                CreatedAt = DateTimeOffset.UtcNow,
+                LastCloudSyncAt = DateTimeOffset.UtcNow
+            };
+            db.Players.Add(ianUser);
+            await db.SaveChangesAsync();
+
+            // Deck de départ pour Ian
             db.PlayerCards.AddRange(
                 new PlayerCard
                 {
-                    Id = alphaFoxInstanceId,
-                    PlayerId = playerAlphaId,
-                    SpeciesCardId = foxCardId,
-                    CustomNickname = "Goupil de Loire",
-                    ExperiencePoints = 420,
-                    Level = 5,
+                    PlayerId = ianUser.Id,
+                    SpeciesCardId = fox.Id,
+                    CustomNickname = "Goupil",
+                    Level = 2,
+                    ExperiencePoints = 120,
                     Stage = LifeStage.Adulte,
                     State = CardState.Disponible,
                     IsInActiveDeck = true,
-                    CurrentAttack = 58,
-                    CurrentDefense = 46,
-                    CurrentSpeed = 70,
+                    CurrentAttack = 44,
+                    CurrentDefense = 38,
+                    CurrentSpeed = 58,
                     WeightKg = 7.8,
-                    PolaroidFinish = "Or",
-                    ObtainedVia = "Capture"
+                    PolaroidFinish = "Standard",
+                    ObtainedVia = "Starter"
                 },
                 new PlayerCard
                 {
-                    Id = alphaKingfisherInstanceId,
-                    PlayerId = playerAlphaId,
-                    SpeciesCardId = kingfisherCardId,
-                    CustomNickname = "Flèche d'Azur",
-                    ExperiencePoints = 150,
-                    Level = 2,
+                    PlayerId = ianUser.Id,
+                    SpeciesCardId = lion.Id,
+                    CustomNickname = "Simba",
+                    Level = 1,
+                    ExperiencePoints = 40,
                     Stage = LifeStage.Juvenile,
                     State = CardState.Disponible,
                     IsInActiveDeck = true,
-                    CurrentAttack = 38,
-                    CurrentDefense = 28,
-                    CurrentSpeed = 80,
-                    WeightKg = 0.042,
-                    PolaroidFinish = "Standard",
-                    ObtainedVia = "Gacha"
-                }
-            );
-
-            db.ShowcasePedestals.Add(
-                new ShowcasePedestal
+                    CurrentAttack = 80,
+                    CurrentDefense = 65,
+                    CurrentSpeed = 60,
+                    WeightKg = 185.0,
+                    PolaroidFinish = "Bronze",
+                    ObtainedVia = "Starter"
+                },
+                new PlayerCard
                 {
-                    OwnerPlayerId = playerAlphaId,
-                    DisplayedPlayerCardId = alphaFoxInstanceId,
-                    SlotIndex = 1,
-                    PositionX = 0.0,
-                    PositionY = 0.5,
-                    PositionZ = -1.5
+                    PlayerId = ianUser.Id,
+                    SpeciesCardId = eagle.Id,
+                    CustomNickname = "Aquila",
+                    Level = 1,
+                    ExperiencePoints = 20,
+                    Stage = LifeStage.Juvenile,
+                    State = CardState.Disponible,
+                    IsInActiveDeck = true,
+                    CurrentAttack = 65,
+                    CurrentDefense = 45,
+                    CurrentSpeed = 75,
+                    WeightKg = 5.2,
+                    PolaroidFinish = "Standard",
+                    ObtainedVia = "Starter"
                 }
             );
-
             await db.SaveChangesAsync();
         }
 
+        var arfaoumoUser = await db.Players
+            .Include(p => p.InventoryCards)
+            .FirstOrDefaultAsync(p => p.Username == "Arfaoumo" || p.Email == "arfaoumo@bioma.fr");
+
+        if (arfaoumoUser is null)
+        {
+            arfaoumoUser = new PlayerProfile
+            {
+                Id = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+                Username = "Arfaoumo",
+                Email = "arfaoumo@bioma.fr",
+                PasswordHash = hashedPwd,
+                AvatarUrl = UserProfileService.BuildDefaultAvatarSvg("Arfaoumo"),
+                VirtualCurrency = 1000,
+                ExperiencePoints = 250,
+                Level = 2,
+                Energy = 100,
+                EloRating = 1100,
+                TotalVictories = 5,
+                TotalDefeats = 1,
+                PushNotificationsEnabled = true,
+                CreatedAt = DateTimeOffset.UtcNow,
+                LastCloudSyncAt = DateTimeOffset.UtcNow
+            };
+            db.Players.Add(arfaoumoUser);
+            await db.SaveChangesAsync();
+
+            // Deck de départ pour Mohamed
+            db.PlayerCards.AddRange(
+                new PlayerCard
+                {
+                    PlayerId = arfaoumoUser.Id,
+                    SpeciesCardId = lion.Id,
+                    CustomNickname = "Aslan",
+                    Level = 2,
+                    ExperiencePoints = 140,
+                    Stage = LifeStage.Adulte,
+                    State = CardState.Disponible,
+                    IsInActiveDeck = true,
+                    CurrentAttack = 88,
+                    CurrentDefense = 72,
+                    CurrentSpeed = 64,
+                    WeightKg = 195.0,
+                    PolaroidFinish = "Or",
+                    ObtainedVia = "Starter"
+                },
+                new PlayerCard
+                {
+                    PlayerId = arfaoumoUser.Id,
+                    SpeciesCardId = eagle.Id,
+                    CustomNickname = "Faucon",
+                    Level = 2,
+                    ExperiencePoints = 110,
+                    Stage = LifeStage.Adulte,
+                    State = CardState.Disponible,
+                    IsInActiveDeck = true,
+                    CurrentAttack = 70,
+                    CurrentDefense = 50,
+                    CurrentSpeed = 80,
+                    WeightKg = 5.4,
+                    PolaroidFinish = "Standard",
+                    ObtainedVia = "Starter"
+                },
+                new PlayerCard
+                {
+                    PlayerId = arfaoumoUser.Id,
+                    SpeciesCardId = fox.Id,
+                    CustomNickname = "Renart",
+                    Level = 1,
+                    ExperiencePoints = 30,
+                    Stage = LifeStage.Juvenile,
+                    State = CardState.Disponible,
+                    IsInActiveDeck = true,
+                    CurrentAttack = 40,
+                    CurrentDefense = 35,
+                    CurrentSpeed = 55,
+                    WeightKg = 7.5,
+                    PolaroidFinish = "Standard",
+                    ObtainedVia = "Starter"
+                }
+            );
+            await db.SaveChangesAsync();
+        }
+
+        // 4. Hotspots d'expéditions (Épique 3 : Globe 3D)
         if (!await db.Hotspots.AnyAsync())
         {
             db.Hotspots.AddRange(
                 new BiodiversityHotspot
                 {
-                    Name = "Delta de la Camargue",
-                    CountryOrRegion = "France",
-                    Latitude = 43.5512,
-                    Longitude = 4.6214,
-                    Biome = BiomeType.ZoneHumide,
-                    ActiveSeason = Season.Printemps,
-                    SpeciesDensityScore = 88
-                },
-                new BiodiversityHotspot
-                {
-                    Name = "Bassin Amazonien (Manaus)",
-                    CountryOrRegion = "Brésil",
-                    Latitude = -3.1190,
-                    Longitude = -60.0217,
-                    Biome = BiomeType.ForetTropicale,
+                    Name = "Parc National de Yellowstone",
+                    CountryOrRegion = "États-Unis",
+                    Latitude = 44.428,
+                    Longitude = -110.588,
+                    Biome = BiomeType.ForetTemperee,
                     ActiveSeason = Season.Ete,
-                    SpeciesDensityScore = 98
+                    SpeciesDensityScore = 88
                 },
                 new BiodiversityHotspot
                 {
                     Name = "Plaines du Serengeti",
                     CountryOrRegion = "Tanzanie",
-                    Latitude = -2.3333,
-                    Longitude = 34.8333,
+                    Latitude = -2.333,
+                    Longitude = 34.833,
                     Biome = BiomeType.Savane,
+                    ActiveSeason = Season.Printemps,
+                    SpeciesDensityScore = 96
+                },
+                new BiodiversityHotspot
+                {
+                    Name = "Bassin de l'Amazone",
+                    CountryOrRegion = "Brésil",
+                    Latitude = -3.465,
+                    Longitude = -62.215,
+                    Biome = BiomeType.ForetTropicale,
                     ActiveSeason = Season.Automne,
+                    SpeciesDensityScore = 99
+                },
+                new BiodiversityHotspot
+                {
+                    Name = "Grande Barrière de Corail",
+                    CountryOrRegion = "Australie",
+                    Latitude = -18.287,
+                    Longitude = 147.699,
+                    Biome = BiomeType.ZoneHumide,
+                    ActiveSeason = Season.Ete,
                     SpeciesDensityScore = 94
                 }
             );
             await db.SaveChangesAsync();
         }
 
+        // 5. Questions de Quiz Chronométré (Épique 4)
         if (!await db.QuizQuestions.AnyAsync())
         {
             db.QuizQuestions.AddRange(
                 new BiologyQuizQuestion
                 {
-                    QuestionText = "Quel sens le Renard roux (Vulpes vulpes) utilise-t-il principalement pour localiser ses proies sous une épaisse couche de neige ?",
-                    ChoiceA = "L'ouïe ultra-directionnelle",
-                    ChoiceB = "L'écholocation par ultrasons",
-                    ChoiceC = "La vision thermique infrarouge",
-                    ChoiceD = "L'électroréception",
-                    CorrectChoiceIndex = 0,
-                    ScientificExplanation = "Le renard roux possède des pavillons auriculaires mobiles capables de localiser le bruissement d'un campagnol sous 50 cm de neige.",
+                    QuestionText = "Quel mammifère marin détient le record absolu de profondeur de plongée en apnée (plus de 2 000 m) ?",
+                    ChoiceA = "Grand requin blanc",
+                    ChoiceB = "Grand cachalot",
+                    ChoiceC = "Baleine bleue",
+                    ChoiceD = "Orque",
+                    CorrectChoiceIndex = 1,
+                    ScientificExplanation = "Le Grand cachalot (Physeter macrocephalus) plonge couramment au-delà de 2 000 mètres de profondeur pour chasser les calmars géants.",
                     TimeLimitSeconds = 15,
-                    RewardCurrency = 60,
-                    RewardXp = 30
+                    RewardCurrency = 50,
+                    RewardXp = 25
                 },
                 new BiologyQuizQuestion
                 {
-                    QuestionText = "Dans quel biome principal le Martin-pêcheur d'Europe (Alcedo atthis) chasse-t-il ses proies ?",
-                    ChoiceA = "La toundra arctique",
-                    ChoiceB = "Les zones humides et cours d'eau douce",
-                    ChoiceC = "Le désert aride",
-                    ChoiceD = "La haute montagne rocheuse",
-                    CorrectChoiceIndex = 1,
-                    ScientificExplanation = "Le martin-pêcheur dépend d'eaux douces claires et calmes où il repère les petits poissons depuis une branche surplombant l'eau.",
+                    QuestionText = "À quelle famille scientifique appartient le Renard roux (Vulpes vulpes) ?",
+                    ChoiceA = "Felidae",
+                    ChoiceB = "Ursidae",
+                    ChoiceC = "Canidae",
+                    ChoiceD = "Mustelidae",
+                    CorrectChoiceIndex = 2,
+                    ScientificExplanation = "Le renard roux appartient à la famille des Canidés, aux côtés du loup gris et du dingo.",
+                    TimeLimitSeconds = 15,
+                    RewardCurrency = 50,
+                    RewardXp = 25
+                },
+                new BiologyQuizQuestion
+                {
+                    QuestionText = "Quelle adaptation visuelle remarquable permet au Pygargue d'avoir une vision si perçante en vol ?",
+                    ChoiceA = "Deux fovéas distinctes par œil",
+                    ChoiceB = "Vision thermique infrarouge",
+                    ChoiceC = "Un œil dorsal supplémentaire",
+                    ChoiceD = "Écholocalisation par ultrasons",
+                    CorrectChoiceIndex = 0,
+                    ScientificExplanation = "La plupart des grands rapaces ont deux fovéas par œil, ce qui leur permet une vue panoramique tout en zoomant sur des détails au sol.",
                     TimeLimitSeconds = 15,
                     RewardCurrency = 50,
                     RewardXp = 25

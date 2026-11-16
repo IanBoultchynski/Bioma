@@ -1,0 +1,114 @@
+@using Bioma.Application.DTOs
+
+@*
+    Animation de révélation basée sur le rendu de Polaroîde.blend :
+    1. la vidéo Blender est jouée (appareil → flash → éjection → photo face à l'écran)
+    2. à la fin, la carte (PolaroidPrint) est posée exactement sur la photo de la dernière image
+    3. la photo se "développe" : l'image de l'espèce apparaît dans la fenêtre noire
+    Mettre @key sur ce composant pour qu'il redémarre à chaque tirage.
+*@
+
+<div class="polaroid-reveal">
+    @if (_skipped)
+    {
+        @* Animation passée : on affiche directement la dernière image *@
+        <img class="polaroid-reveal-media" src="@PosterSrc" alt="" />
+    }
+    else
+    {
+        <video class="polaroid-reveal-media"
+               src="@VideoSrc"
+               poster="@PosterSrc"
+               autoplay muted playsinline preload="auto"
+               oncanplay="this.muted = true; this.play().catch(() => {});"
+               @onended="OnVideoFinishedAsync"
+               @onerror="OnVideoFinishedAsync"></video>
+    }
+
+    @if (_printVisible)
+    {
+        <PolaroidPrint Card="Card" Developed="_developed" />
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public GachaDrawnCardDto Card { get; set; } = default!;
+
+    /// <summary>Vidéo rendue depuis Blender (images 20 à 80, fond transparent).</summary>
+    [Parameter]
+    public string VideoSrc { get; set; } = "media/polaroid-tirage.webm";
+
+    /// <summary>Image 80 en PNG transparent (utilisée si on passe l'animation).</summary>
+    [Parameter]
+    public string PosterSrc { get; set; } = "media/polaroid-tirage-fin.png";
+
+    /// <summary>Durée du développement, doit correspondre à la transition CSS (2.2s).</summary>
+    [Parameter]
+    public int DevelopDurationMs { get; set; } = 2200;
+
+    /// <summary>Appelé quand la carte est entièrement révélée.</summary>
+    [Parameter]
+    public EventCallback OnRevealed { get; set; }
+        /// <summary>Durée de la vidéo (81 images à 24 i/s ≈ 3,4 s).</summary>
+    [Parameter]
+    public int VideoDurationMs { get; set; } = 3400;
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _ = FallbackAsync();
+        }
+    }
+
+    private async Task FallbackAsync()
+    {
+        await Task.Delay(VideoDurationMs + 1500);
+        if (!_printVisible)
+        {
+            await OnVideoFinishedAsync();
+        }
+    }
+
+    private bool _printVisible;
+    private bool _developed;
+    private bool _skipped;
+    private bool _finished;
+
+    private async Task OnVideoFinishedAsync()
+    {
+        if (_printVisible) return; // déjà déclenché
+
+        // La carte apparaît noire, comme la photo de la dernière image de la vidéo...
+        _printVisible = true;
+        StateHasChanged();
+
+        // ...puis se développe
+        await Task.Delay(60);
+        _developed = true;
+        StateHasChanged();
+
+        await Task.Delay(DevelopDurationMs);
+        await FinishAsync();
+    }
+
+    /// <summary>Bouton "Tout révéler" : saute directement à la carte développée.</summary>
+    public async Task SkipToEndAsync()
+    {
+        if (_finished) return;
+
+        _skipped = true;
+        _printVisible = true;
+        _developed = true;
+        StateHasChanged();
+        await FinishAsync();
+    }
+
+    private async Task FinishAsync()
+    {
+        if (_finished) return;
+        _finished = true;
+        await OnRevealed.InvokeAsync();
+    }
+}

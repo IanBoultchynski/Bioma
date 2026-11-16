@@ -1,0 +1,46 @@
+@using Bioma.Application.DTOs
+@using Bioma.Domain.Enums
+
+@*
+    Carte au format de la photo du modèle Blender (Polaroîde.blend) :
+    photo carrée, fenêtre image carrée centrée, bordure blanche de 12,5 % sur chaque côté.
+    La fenêtre est noire tant que la photo n'est pas "développée".
+*@
+
+<div class="polaroid-print rarity-@RarityCss(Card.Rarity) @(Developed ? "is-developed" : "") @Class"
+     title="@Card.CommonName · @Card.ScientificName">
+    <div class="polaroid-print-window">
+        <img src="@Card.ImageUrl" alt="@Card.CommonName" />
+        <span class="rarity-badge @RarityCss(Card.Rarity)">@Card.RarityLabel</span>
+    </div>
+
+    <div class="polaroid-print-caption">
+        <span class="polaroid-print-name">@Card.CommonName</span>
+        @if (Card.IsNew)
+        {
+            <span class="gacha-new">NOUVEAU</span>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public GachaDrawnCardDto Card { get; set; } = default!;
+
+    /// <summary>false = fenêtre noire (pas encore développée), true = image visible.</summary>
+    [Parameter]
+    public bool Developed { get; set; } = true;
+
+    /// <summary>Classes CSS en plus (ex : "gacha-flip").</summary>
+    [Parameter]
+    public string? Class { get; set; }
+
+    public static string RarityCss(CardRarity rarity) => rarity switch
+    {
+        CardRarity.Commune => "commune",
+        CardRarity.PeuCommune => "peu-commune",
+        CardRarity.Rare => "rare",
+        CardRarity.Legendaire => "legendaire",
+        _ => "commune"
+    };
+}

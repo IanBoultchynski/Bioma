@@ -1,0 +1,191 @@
+@page "/tirage"
+@using Bioma.Application.DTOs
+@using Bioma.Application.Interfaces
+@using Bioma.Domain.Enums
+@inject IGachaService Gacha
+
+@*
+    Épique 5 : Tirage / Gacha (US-27 à US-31) + animation Polaroïd (US-13, US-29)
+    - ×1  : l'appareil photo (vidéo Blender) imprime la carte, qui se développe
+    - ×10 : l'appareil imprime la MEILLEURE carte, puis les 10 cartes apparaissent une par une
+*@
+
+<div class="bioma-page-header">
+    <div>
+        <h1 class="bioma-title">Tirage · Échos du vivant</h1>
+        <p class="bioma-subtitle">Dépensez votre monnaie pour découvrir de nouvelles espèces. Plus une espèce est rare dans la nature, plus elle est rare ici.</p>
+    </div>
+
+    <div class="bioma-stat-counter">
+        <span class="bioma-stat-number">@(_banner?.PlayerCurrency ?? 0)</span>
+        <div style="text-align: left; font-size: 0.74rem; color: var(--figma-text-soft); line-height: 1.35;">
+            <div>monnaie virtuelle</div>
+            <div style="color: var(--figma-text-muted);">aucun achat réel</div>
+        </div>
+    </div>
+</div>
+
+@if (_banner is null)
+{
+    <p style="color: var(--figma-text-muted);">Chargement…</p>
+}
+else
+{
+    <div class="refuge-grid" style="grid-template-columns: 1fr 1.3fr; gap: 2rem; align-items: start;">
+        <!-- COLONNE GAUCHE : prix, probabilités, boutons -->
+        <section class="gacha-panel">
+            <h2 class="figma-section-title" style="margin-bottom: 0.75rem;">Probabilités par carte</h2>
+
+            @foreach (var odd in _banner.Odds)
+            {
+                <div class="gacha-odds-row">
+                    <span class="rarity-badge @PolaroidPrint.RarityCss(odd.Rarity)">@odd.Label</span>
+                    <span style="font-weight: 600;">@odd.Percent %</span>
+                </div>
+            }
+
+            <p style="font-size: 0.74rem; color: var(--figma-text-muted); margin: 0.85rem 0 1.1rem;">
+                Le tirage ×@_banner.MultiPullCount garantit au moins une carte <strong>Rare</strong>.
+                Catalogue actuel : @_banner.CatalogueSize espèce(s).
+            </p>
+
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <div class="gacha-error">@_error</div>
+            }
+
+            <div style="display: flex; gap: 0.7rem; flex-wrap: wrap;">
+                <button class="btn-sand" style="width: auto;"
+                        disabled="@(_isBusy || _banner.PlayerCurrency < _banner.SinglePullCost)"
+                        @onclick="() => PullAsync(1)">
+                    <span>Tirer ×1 · @_banner.SinglePullCost</span>
+                </button>
+
+                <button class="btn-outline" style="width: auto;"
+                        disabled="@(_isBusy || _banner.PlayerCurrency < _banner.MultiPullCost)"
+                        @onclick="() => PullAsync(_banner.MultiPullCount)">
+                    <span>Tirer ×@_banner.MultiPullCount · @_banner.MultiPullCost</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- COLONNE DROITE : scène de révélation -->
+        <section class="gacha-panel gacha-stage">
+            @if (_featured is null)
+            {
+                <div class="gacha-empty">
+                    <div class="polaroid-reveal">
+                        <img class="polaroid-reveal-media" src="media/polaroid-tirage-debut.png" alt="" />
+                    </div>
+                    <p>Lancez un tirage pour imprimer vos cartes.</p>
+                </div>
+            }
+            else
+            {
+                <!-- 1. L'appareil imprime la meilleure carte -->
+                <PolaroidReveal @key="_pullNumber" @ref="_reveal"
+                                Card="_featured"
+                                OnRevealed="OnFeaturedRevealedAsync" />
+
+                <!-- 2. Tirage ×10 : toutes les cartes, révélées une par une -->
+                @if (_showGrid)
+                {
+                    <div class="gacha-grid">
+                        @for (int i = 0; i < _drawn.Count; i++)
+                        {
+                            var card = _drawn[i];
+                            if (i < _revealedCount)
+                            {
+                                <PolaroidPrint Card="card" Class="gacha-flip" />
+                            }
+                            else
+                            {
+                                <div class="gacha-card-back"></div>
+                            }
+                        }
+                    </div>
+                }
+
+                @if (_isBusy)
+                {
+                    <button class="btn-outline" style="width: auto; margin-top: 1rem;" @onclick="SkipAsync">
+                        <span>Tout révéler</span>
+                    </button>
+                }
+            }
+        </section>
+    </div>
+}
+
+@code {
+    // En attendant la connexion (US-01) : joueur de démo créé par BiomaDbSeeder
+    private static readonly Guid DemoPlayerId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+
+    private GachaBannerDto? _banner;
+    private List<GachaDrawnCardDto> _drawn = new();
+    private GachaDrawnCardDto? _featured;   // carte imprimée par l'appareil
+    private PolaroidReveal? _reveal;
+    private int _pullNumber;                // change à chaque tirage => la vidéo redémarre
+    private int _revealedCount;
+    private bool _showGrid;
+    private bool _isBusy;
+    private bool _skip;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _banner = await Gacha.GetBannerAsync(DemoPlayerId);
+    }
+
+    private async Task PullAsync(int count)
+    {
+        if (_isBusy) return; // évite le double-clic
+        _isBusy = true;
+        _error = null;
+
+        var result = await Gacha.PullAsync(DemoPlayerId, count);
+        if (!result.Success)
+        {
+            _error = result.Message;
+            _isBusy = false;
+            return;
+        }
+
+        _banner = _banner! with { PlayerCurrency = result.RemainingCurrency };
+        _drawn = result.Cards;
+        _featured = _drawn.OrderByDescending(c => c.Rarity).First(); // la plus rare est imprimée
+        _revealedCount = 0;
+        _showGrid = false;
+        _skip = false;
+        _pullNumber++;
+        // La suite se passe dans OnFeaturedRevealedAsync, à la fin de l'animation Polaroïd
+    }
+
+    private async Task OnFeaturedRevealedAsync()
+    {
+        if (_drawn.Count > 1)
+        {
+            _showGrid = true;
+            for (int i = 0; i < _drawn.Count && !_skip; i++)
+            {
+                _revealedCount = i + 1;
+                StateHasChanged();
+                await Task.Delay(_drawn[i].Rarity >= CardRarity.Rare ? 700 : 300);
+            }
+        }
+
+        _revealedCount = _drawn.Count;
+        _isBusy = false;
+        StateHasChanged();
+    }
+
+    private async Task SkipAsync()
+    {
+        _skip = true;
+        _revealedCount = _drawn.Count;
+        if (_reveal is not null)
+        {
+            await _reveal.SkipToEndAsync(); // ne fait rien si l'animation est déjà finie
+        }
+    }
+}

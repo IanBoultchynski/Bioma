@@ -2,6 +2,7 @@ using System.Text.Json;
 using Bioma.Application.DTOs;
 using Bioma.Application.Interfaces;
 using Bioma.Domain.Entities;
+using Bioma.Domain.Enums;
 using Bioma.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -227,6 +228,7 @@ public class BiomaGameService : IBiomaGameService
             Longitude = observation.Longitude,
             CountryOrPlace = observation.CountryOrPlace,
             ObservedDate = observation.ObservedDate,
+            Rarity = await ComputeRarityFromGbifAsync(observation.ScientificName),
             CreatedAt = DateTimeOffset.UtcNow
         };
 
@@ -305,6 +307,36 @@ public class BiomaGameService : IBiomaGameService
             card.CountryOrPlace,
             card.ObservedDate
         );
+    }
+    
+    /// <summary>
+    /// US-28 : rareté déduite du nombre d'observations GBIF de l'espèce.
+    /// </summary>
+    private async Task<CardRarity> ComputeRarityFromGbifAsync(string scientificName, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = $"{GbifOccurrenceSearchUrl}?scientificName={Uri.EscapeDataString(scientificName)}&limit=0";
+            using var response = await _httpClient.GetAsync(url, ct);
+            if (!response.IsSuccessStatusCode) return CardRarity.Commune;
+
+            using var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+            long count = doc.RootElement.TryGetProperty("count", out var c) && c.ValueKind == JsonValueKind.Number
+                ? c.GetInt64()
+                : 0;
+
+            return count switch
+            {
+                >= 500_000 => CardRarity.Commune,
+                >= 50_000  => CardRarity.PeuCommune,
+                >= 5_000   => CardRarity.Rare,
+                _          => CardRarity.Legendaire
+            };
+        }
+        catch
+        {
+            return CardRarity.Commune; // pas de réseau : on ne bloque pas l'ajout
+        }
     }
 
     private static string? GetString(JsonElement el, string propName)

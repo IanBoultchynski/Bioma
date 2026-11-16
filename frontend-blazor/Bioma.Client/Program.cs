@@ -17,6 +17,7 @@ builder.Services.AddDbContext<BiomaDbContext>(options =>
 });
 
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
+builder.Services.AddScoped<IGachaService, GachaService>();
 
 builder.Services.AddHttpClient<IBiomaGameService, BiomaGameService>(client =>
 {

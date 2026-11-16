@@ -88,11 +88,11 @@ public interface IQuizService
 /// </summary>
 public interface IGachaService
 {
-    // US-27 : Dépense de monnaie virtuelle pour un tirage aléatoire
-    // US-28 : Pondération des probabilités selon la rareté réelle dans la nature
-    // US-29 : Données pour l'animation de loterie
-    // US-30 : Indication claire du niveau de rareté (Commune, Rare, Légendaire)
-    // US-31 : Multi-tirage (ex: x10)
+    // US-27, US-28, US-30, US-31 : prix, solde et probabilités affichés avant de tirer
+    Task<GachaBannerDto> GetBannerAsync(Guid playerId, CancellationToken ct = default);
+
+    // US-27 à US-31 : tirage ×1 ou ×10, débit de la monnaie, ajout à l'inventaire
+    Task<GachaPullResultDto> PullAsync(Guid playerId, int count, CancellationToken ct = default);
 }
 
 /// <summary>

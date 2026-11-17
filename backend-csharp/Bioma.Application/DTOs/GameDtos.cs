@@ -1,7 +1,10 @@
+using Bioma.Domain.Enums;
+
 namespace Bioma.Application.DTOs;
 
 /// <summary>
-/// Observation brute récupérée en direct depuis les APIs publiques GBIF ou iNaturalist.
+/// Observation brute récupérée en direct depuis les APIs publiques GBIF ou iNaturalist,
+/// enrichie avec la rareté biologique réelle dans la nature et sa corrélation avec le tirage Gacha (US-28, US-30).
 /// </summary>
 public record ExternalObservationDto(
     string ExternalId,
@@ -14,7 +17,14 @@ public record ExternalObservationDto(
     double? Longitude,
     string CountryOrPlace,
     string ObservedDate,
-    string ImageUrl
+    string ImageUrl,
+    long NaturalOccurrencesCount = 0,
+    CardRarity Rarity = CardRarity.Commune,
+    string RarityLabel = "Commune",
+    double DropRatePercent = 60.0,
+    int BaseAttack = 40,
+    int BaseDefense = 35,
+    int BaseSpeed = 45
 );
 
 /// <summary>
@@ -31,7 +41,7 @@ public record ApiSearchResultDto(
 );
 
 /// <summary>
-/// Carte enregistrée dans le Back-Office C#.
+/// Carte enregistrée dans le Back-Office C# et disponible dans le pool de Tirage Gacha.
 /// </summary>
 public record CardDto(
     Guid Id,
@@ -42,5 +52,12 @@ public record CardDto(
     string ImageUrl,
     string CoordinatesText,
     string CountryOrPlace,
-    string ObservedDate
+    string ObservedDate,
+    CardRarity Rarity = CardRarity.Commune,
+    string RarityLabel = "Commune",
+    long NaturalOccurrencesCount = 0,
+    double DropRatePercent = 60.0,
+    int BaseAttack = 40,
+    int BaseDefense = 35,
+    int BaseSpeed = 45
 );

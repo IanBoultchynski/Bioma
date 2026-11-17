@@ -3,118 +3,142 @@
 @implements IDisposable
 @using Bioma.Application.DTOs
 @using Bioma.Application.Interfaces
+@using Bioma.Domain.Enums
 @inject IBiomaGameService BiodiversityService
 @inject IUserProfileService UserService
 @inject UserSessionState Session
 
 <div class="bioma-page-header">
     <div>
-        <h1 class="bioma-title">Bioma · Explorateur Simplifié</h1>
+        <h1 class="bioma-title">Explorateur &amp; Catalogue d'Espèces</h1>
         <p class="bioma-subtitle">
-            Connexion directe aux APIs scientifiques <strong>GBIF</strong> &amp; <strong>iNaturalist</strong> et sauvegarde dans le début de Back-Office C#.
+            Interrogation directe des APIs scientifiques GBIF et iNaturalist : photographies vérifiées, taxonomie et rareté naturelle.
         </p>
     </div>
 
-    <div class="bioma-stat-counter">
-        <span class="bioma-stat-number">@_savedCards.Count</span>
-        <div style="text-align: left; font-size: 0.74rem; color: var(--figma-text-soft); line-height: 1.35;">
-            <div>cartes enregistrées</div>
-            <div style="color: var(--figma-text-muted);">Back-Office C# (EF Core)</div>
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <div class="bioma-stat-counter">
+            <span class="bioma-stat-number">@_savedCards.Count</span>
+            <div style="text-align: left; font-size: 0.74rem; color: var(--figma-text-soft); line-height: 1.3;">
+                <div>espèces au catalogue</div>
+                <div style="color: var(--figma-green-accent); font-size: 0.68rem;">Synchronisé Supabase</div>
+            </div>
         </div>
+        <a href="/tirage" class="btn-sand" style="width: auto; padding: 0.6rem 1.15rem;">
+            <span>Ouvrir le Tirage</span>
+        </a>
     </div>
 </div>
 
-<div class="refuge-grid" style="grid-template-columns: 1.35fr 1fr; gap: 2rem; align-items: start;">
-    <!-- COLONNE GAUCHE : Connexion aux APIs GBIF & iNaturalist -->
-    <section style="background: rgba(24, 48, 35, 0.55); border: 1px solid var(--figma-border); border-radius: 8px; padding: 1.35rem;">
-        <div class="figma-section-header" style="margin-bottom: 1rem;">
-            <h2 class="figma-section-title">1. Connexion APIs GBIF &amp; iNaturalist</h2>
-            <span style="font-size: 0.72rem; color: var(--figma-text-muted);">GET /api/biodiversity/search</span>
+@if (!string.IsNullOrEmpty(_notification))
+{
+    <div style="padding: 0.65rem 1rem; margin-bottom: 1.25rem; border-radius: 8px; background: rgba(46, 158, 91, 0.22); border: 1px solid rgba(72, 187, 120, 0.55); font-size: 0.82rem; color: var(--figma-text); display: flex; justify-content: space-between; align-items: center;">
+        <span>@_notification</span>
+        <button type="button" @onclick="() => _notification = null" style="background: none; border: none; color: var(--figma-text-soft); cursor: pointer; font-size: 0.78rem;">Fermer</button>
+    </div>
+}
+
+<div class="refuge-grid" style="grid-template-columns: 1.15fr 1fr; gap: 1.75rem; align-items: start;">
+    <!-- COLONNE GAUCHE : Recherche directe GBIF & iNaturalist -->
+    <section class="bioma-panel">
+        <div class="figma-section-header" style="margin-bottom: 0.9rem;">
+            <h2 class="figma-section-title">Rechercher une espèce (API GBIF &amp; iNaturalist)</h2>
+            <span style="font-size: 0.72rem; color: var(--figma-gold);">Données temps réel</span>
         </div>
 
-        <!-- Barre de recherche -->
-        <div style="display: flex; gap: 0.6rem; margin-bottom: 0.75rem; flex-wrap: wrap;">
+        <div style="display: flex; gap: 0.55rem; margin-bottom: 0.75rem;">
             <input type="text"
+                   class="bioma-input"
                    @bind="_searchQuery"
                    @bind:event="oninput"
-                   placeholder="Nom scientifique ou commun (ex: Vulpes vulpes, Lynx lynx...)"
-                   style="flex: 1; min-width: 210px; padding: 0.6rem 0.85rem; border-radius: 6px; border: 1px solid var(--figma-border); background: rgba(15, 32, 22, 0.75); color: var(--figma-text); font-size: 0.85rem;" />
+                   @onkeydown="@(async e => { if (e.Key == "Enter") await ExecuteSearchAsync(); })"
+                   placeholder="Nom d'espèce (ex: Panthera uncia, Canis lupus, Lutra lutra, Vulpes vulpes...)" />
 
-            <button class="btn-sand" style="width: auto; padding: 0.6rem 1.2rem;" @onclick="ExecuteSearchAsync" disabled="@_isLoading">
-                <span>@(_isLoading ? "Requête en cours..." : "Interroger GBIF & iNaturalist")</span>
+            <button class="btn-sand" style="width: auto; white-space: nowrap;" @onclick="ExecuteSearchAsync" disabled="@_isLoading">
+                <span>@(_isLoading ? "Recherche..." : "Rechercher")</span>
             </button>
         </div>
 
-        <!-- Boutons de recherche rapide -->
-        <div style="display: flex; gap: 0.45rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem;">
-            <span style="font-size: 0.72rem; color: var(--figma-text-muted);">Exemples rapides :</span>
-            @foreach (var preset in _presets)
-            {
-                <button type="button"
-                        @onclick="() => SelectPresetAsync(preset)"
-                        style="background: rgba(229, 222, 201, 0.1); color: var(--figma-text); border: 1px solid var(--figma-border); border-radius: 999px; padding: 0.22rem 0.65rem; font-size: 0.72rem; cursor: pointer;">
-                    @preset
-                </button>
-            }
+        <!-- Sélection rapide depuis les espèces du catalogue (non codé en dur) -->
+        @if (_savedCards.Count > 0)
+        {
+            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.85rem;">
+                @foreach (var sample in _savedCards
+                    .GroupBy(c => c.Rarity)
+                    .SelectMany(g => g.Take(2)))
+                {
+                    string rCss = PolaroidPrint.RarityCss(sample.Rarity);
+                    <button type="button"
+                            @onclick="() => SelectPresetAsync(sample.ScientificSubtitle)"
+                            style="display: inline-flex; align-items: center; gap: 0.4rem; background: rgba(15, 32, 22, 0.75); color: var(--figma-text); border: 1px solid var(--figma-border-strong); border-radius: 999px; padding: 0.22rem 0.65rem; font-size: 0.72rem; cursor: pointer;">
+                        <span class="polaroid-dot @rCss" style="margin: 0;"></span>
+                        <span>@sample.Name</span>
+                    </button>
+                }
+            </div>
+        }
 
-            <div style="margin-left: auto; display: flex; gap: 0.35rem;">
-                @foreach (var src in new[] { "TOUS", "GBIF", "iNaturalist" })
+        <div style="display: flex; gap: 0.5rem; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap;">
+            <div style="display: flex; gap: 0.45rem; align-items: center;">
+                <select class="bioma-select" style="width: auto; padding: 0.35rem 0.65rem; font-size: 0.75rem;" @bind="_sortMode">
+                    <option value="rarity_desc">Trier : Plus rare dans la nature</option>
+                    <option value="rarity_asc">Trier : Plus abondant dans la nature</option>
+                    <option value="date_desc">Trier : Date d'observation</option>
+                </select>
+            </div>
+
+            <div style="display: flex; gap: 0.3rem;">
+                @foreach (var src in new[] { "TOUS", "iNaturalist", "GBIF" })
                 {
                     <button type="button"
-                            @onclick="() => _sourceFilter = src"
-                            style="background: @(_sourceFilter == src ? "var(--figma-sand)" : "transparent"); color: @(_sourceFilter == src ? "#14261C" : "var(--figma-text-soft)"); border: 1px solid var(--figma-border); border-radius: 4px; padding: 0.2rem 0.55rem; font-size: 0.7rem; font-weight: 600; cursor: pointer;">
+                            class="pill-tab @(_sourceFilter == src ? "active" : "")"
+                            style="padding: 0.22rem 0.6rem; font-size: 0.71rem;"
+                            @onclick="() => _sourceFilter = src">
                         @src
                     </button>
                 }
             </div>
         </div>
 
-        <!-- État des connexions -->
         @if (_searchResult != null)
         {
-            <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; justify-content: space-between; padding: 0.6rem 0.85rem; border-radius: 6px; background: rgba(15, 32, 22, 0.55); border: 1px solid var(--figma-border); margin-bottom: 1.1rem; font-size: 0.75rem;">
-                <span>@_searchResult.StatusMessage</span>
-                <div style="display: flex; gap: 0.6rem;">
-                    <span style="padding: 0.15rem 0.5rem; border-radius: 4px; background: rgba(93, 176, 117, 0.18); border: 1px solid rgba(93, 176, 117, 0.4);">
-                        GBIF : @_searchResult.GbifCount
-                    </span>
-                    <span style="padding: 0.15rem 0.5rem; border-radius: 4px; background: rgba(217, 155, 56, 0.18); border: 1px solid rgba(217, 155, 56, 0.4);">
-                        iNaturalist : @_searchResult.InaturalistCount
-                    </span>
-                </div>
+            <div style="padding: 0.55rem 0.8rem; margin-bottom: 0.9rem; border-radius: 6px; background: rgba(12, 26, 18, 0.55); border: 1px solid var(--figma-border); font-size: 0.74rem; color: var(--figma-text-soft);">
+                @_searchResult.StatusMessage
             </div>
 
-            <!-- Liste des observations retournées par GBIF et iNaturalist -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.9rem;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 0.95rem;">
                 @foreach (var obs in FilteredObservations)
                 {
-                    <div style="background: rgba(15, 32, 22, 0.65); border: 1px solid var(--figma-border); border-radius: 6px; overflow: hidden; display: flex; flex-direction: column;">
-                        <div style="height: 120px; position: relative; background: #0d1b13;">
+                    string rCss = PolaroidPrint.RarityCss(obs.Rarity);
+                    <div style="background: rgba(15, 32, 22, 0.78); border: 1px solid var(--figma-border-strong); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column;">
+                        <div style="height: 140px; position: relative; background: #0d1b13;">
                             <img src="@obs.ImageUrl" alt="@obs.ScientificName" style="width: 100%; height: 100%; object-fit: cover;" />
-                            <span style="position: absolute; top: 6px; left: 6px; padding: 2px 7px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; background: @(obs.SourceApi == "GBIF" ? "#2E6F40" : "#C87D20"); color: #fff;">
+                            <span style="position: absolute; top: 6px; left: 6px; padding: 2px 7px; border-radius: 4px; font-size: 0.62rem; font-weight: 700; background: @(obs.SourceApi == "GBIF" ? "#2E6F40" : "#B46914"); color: #fff;">
                                 @obs.SourceApi
+                            </span>
+                            <span class="rarity-badge @rCss" style="position: absolute; top: 6px; right: 6px; font-size: 0.58rem; padding: 2px 7px;">
+                                @obs.RarityLabel
                             </span>
                         </div>
 
-                        <div style="padding: 0.7rem; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
+                        <div style="padding: 0.75rem; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
                             <div>
-                                <div style="font-weight: 600; font-size: 0.86rem; color: var(--figma-text);">@obs.CommonName</div>
-                                <div style="font-style: italic; font-size: 0.74rem; color: var(--figma-text-soft); margin-bottom: 0.4rem;">@obs.ScientificName</div>
-                                <div style="font-size: 0.68rem; color: var(--figma-text-soft); line-height: 1.45;">
-                                    <div><span style="color: var(--figma-text-muted); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em;">Lieu</span> @obs.CountryOrPlace</div>
-                                    @if (obs.Latitude.HasValue && obs.Longitude.HasValue)
-                                    {
-                                        <div><span style="color: var(--figma-text-muted); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em;">GPS</span> @obs.Latitude.Value.ToString("F2")°, @obs.Longitude.Value.ToString("F2")°</div>
-                                    }
-                                    <div><span style="color: var(--figma-text-muted); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em;">Date</span> @obs.ObservedDate · @obs.Family</div>
+                                <div style="font-weight: 700; font-size: 0.9rem; color: var(--figma-text);">@obs.CommonName</div>
+                                <div style="font-style: italic; font-size: 0.73rem; color: var(--figma-text-soft); margin-bottom: 0.45rem;">@obs.ScientificName</div>
+
+                                <div style="font-size: 0.68rem; color: var(--figma-cream); margin-bottom: 0.3rem;">
+                                    <strong>@obs.NaturalOccurrencesCount.ToString("N0")</strong> observations · Taux Gacha <strong>@obs.DropRatePercent %</strong>
+                                </div>
+                                <div style="font-size: 0.66rem; color: var(--figma-text-muted);">
+                                    @obs.CountryOrPlace · @obs.ObservedDate · ATK @obs.BaseAttack
                                 </div>
                             </div>
 
                             <button type="button"
                                     class="btn-sand"
-                                    style="margin-top: 0.65rem; padding: 0.4rem 0.65rem; font-size: 0.74rem;"
+                                    style="margin-top: 0.65rem; padding: 0.42rem 0.65rem; font-size: 0.74rem;"
                                     @onclick="() => SaveToBackOfficeAsync(obs)">
-                                <span>+ Ajouter au Back-Office C#</span>
+                                <span>Ajouter à ma collection</span>
                             </button>
                         </div>
                     </div>
@@ -123,62 +147,80 @@
         }
     </section>
 
-    <!-- COLONNE DROITE : Début du Back-Office C# (Cartes enregistrées) -->
-    <section style="background: rgba(24, 48, 35, 0.55); border: 1px solid var(--figma-border); border-radius: 8px; padding: 1.35rem;">
-        <div class="figma-section-header" style="margin-bottom: 0.85rem;">
-            <h2 class="figma-section-title">2. Back-Office C# (Collection)</h2>
-            <span style="font-size: 0.72rem; color: var(--figma-text-muted);">BiomaDbContext</span>
+    <!-- COLONNE DROITE : Catalogue Gacha & Espèces synchronisé -->
+    <section class="bioma-panel">
+        <div class="figma-section-header" style="margin-bottom: 0.75rem;">
+            <h2 class="figma-section-title">Catalogue Gacha &amp; Espèces (@FilteredCatalogCards.Count())</h2>
+            <span style="font-size: 0.72rem; color: var(--figma-gold);">Synchronisé API</span>
         </div>
 
-        @if (!string.IsNullOrEmpty(_notification))
-        {
-            <div style="padding: 0.5rem 0.75rem; margin-bottom: 0.85rem; border-radius: 5px; background: rgba(93, 176, 117, 0.2); border: 1px solid rgba(93, 176, 117, 0.45); font-size: 0.76rem; color: var(--figma-text);">
-                @_notification
-            </div>
-        }
-
-        <div style="display: flex; flex-wrap: wrap; gap: 1rem; justify-content: flex-start;">
-            @foreach (var card in _savedCards)
+        <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 1rem;">
+            @foreach (var tab in new[]
             {
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 0.35rem;">
-                    <PolaroidCard Card="card" />
-                    <div style="font-size: 0.65rem; color: var(--figma-text-muted); max-width: 150px; text-align: center;">
-                        @card.CoordinatesText
-                    </div>
-                    <button type="button"
-                            @onclick="() => DeleteCardAsync(card.Id)"
-                            style="background: transparent; border: 1px solid rgba(255,120,120,0.35); color: #ffb3b3; border-radius: 4px; padding: 0.15rem 0.55rem; font-size: 0.66rem; cursor: pointer;">
-                        Supprimer
-                    </button>
-                </div>
+                ("ALL", $"Toutes ({_savedCards.Count})", ""),
+                ("Legendaire", $"Légendaire ({_savedCards.Count(c => c.Rarity == CardRarity.Legendaire)})", "legendaire"),
+                ("Rare", $"Rare ({_savedCards.Count(c => c.Rarity == CardRarity.Rare)})", "rare"),
+                ("PeuCommune", $"Peu commune ({_savedCards.Count(c => c.Rarity == CardRarity.PeuCommune)})", "peu-commune"),
+                ("Commune", $"Commune ({_savedCards.Count(c => c.Rarity == CardRarity.Commune)})", "commune")
+            })
+            {
+                <button type="button"
+                        class="pill-tab @(_catalogRarityFilter == tab.Item1 ? "active" : "")"
+                        style="display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.65rem; font-size: 0.72rem;"
+                        @onclick="() => _catalogRarityFilter = tab.Item1">
+                    @if (!string.IsNullOrEmpty(tab.Item3))
+                    {
+                        <span class="polaroid-dot @tab.Item3" style="margin: 0;"></span>
+                    }
+                    <span>@tab.Item2</span>
+                </button>
             }
         </div>
 
-        <!-- Résumé des routes REST exposées par le Back-Office C# -->
-        <div style="margin-top: 1.4rem; padding-top: 0.9rem; border-top: 1px solid var(--figma-border); font-size: 0.72rem; color: var(--figma-text-muted); line-height: 1.6;">
-            <div style="font-weight: 600; color: var(--figma-text-soft); margin-bottom: 0.25rem;">Endpoints REST du Back-Office C# (Bioma.Api) :</div>
-            <div>• <code>GET /api/biodiversity/search?query=Vulpes vulpes</code></div>
-            <div>• <code>GET /api/biodiversity/gbif?query=Lynx lynx</code></div>
-            <div>• <code>GET /api/biodiversity/inaturalist?query=Alcedo atthis</code></div>
-            <div>• <code>GET /api/biodiversity/cards</code> &amp; <code>POST /api/biodiversity/cards</code></div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 0.9rem; max-height: 700px; overflow-y: auto; padding-right: 0.25rem;">
+            @foreach (var card in FilteredCatalogCards)
+            {
+                <PolaroidCard Card="card" OnSelect="(c) => SelectPresetAsync(c.ScientificSubtitle)" />
+            }
         </div>
     </section>
 </div>
 
 @code {
-    private readonly string[] _presets = ["Vulpes vulpes", "Lynx lynx", "Alcedo atthis", "Ursus arctos"];
-    private string _searchQuery = "Vulpes vulpes";
+    private string _searchQuery = "Panthera uncia";
     private string _sourceFilter = "TOUS";
+    private string _sortMode = "rarity_desc";
+    private string _catalogRarityFilter = "ALL";
     private bool _isLoading;
     private string? _notification;
 
     private ApiSearchResultDto? _searchResult;
     private List<CardDto> _savedCards = new();
 
-    private IEnumerable<ExternalObservationDto> FilteredObservations =>
-        _searchResult?.Observations.Where(o =>
-            _sourceFilter == "TOUS" || o.SourceApi.Equals(_sourceFilter, StringComparison.OrdinalIgnoreCase))
-        ?? Enumerable.Empty<ExternalObservationDto>();
+    private IEnumerable<ExternalObservationDto> FilteredObservations
+    {
+        get
+        {
+            var query = _searchResult?.Observations.AsEnumerable() ?? Enumerable.Empty<ExternalObservationDto>();
+
+            if (_sourceFilter != "TOUS")
+            {
+                query = query.Where(o => o.SourceApi.Equals(_sourceFilter, StringComparison.OrdinalIgnoreCase));
+            }
+
+            return _sortMode switch
+            {
+                "rarity_asc" => query.OrderBy(o => o.Rarity).ThenByDescending(o => o.NaturalOccurrencesCount),
+                "date_desc"  => query.OrderByDescending(o => o.ObservedDate),
+                _            => query.OrderByDescending(o => o.Rarity).ThenBy(o => o.NaturalOccurrencesCount)
+            };
+        }
+    }
+
+    private IEnumerable<CardDto> FilteredCatalogCards =>
+        _catalogRarityFilter == "ALL" || !Enum.TryParse<CardRarity>(_catalogRarityFilter, out var r)
+            ? _savedCards
+            : _savedCards.Where(c => c.Rarity == r);
 
     protected override void OnInitialized()
     {
@@ -201,16 +243,15 @@
         await ExecuteSearchAsync();
     }
 
-    private async Task SelectPresetAsync(string preset)
+    private async Task SelectPresetAsync(string presetQuery)
     {
-        _searchQuery = preset;
+        _searchQuery = presetQuery;
         await ExecuteSearchAsync();
     }
 
     private async Task ExecuteSearchAsync()
     {
         _isLoading = true;
-        _notification = null;
         try
         {
             _searchResult = await BiodiversityService.SearchApisAsync(_searchQuery, limitPerSource: 3);
@@ -232,26 +273,11 @@
             {
                 Session.SetSession(refreshed);
             }
-            _notification = $"Carte « {saved.Name} » ({saved.SourceApi}) enregistrée et ajoutée à l'inventaire de {Session.CurrentProfile.Username}.";
+            _notification = $"Carte « {saved.Name} » ({saved.RarityLabel}) ajoutée à l'inventaire de {Session.CurrentProfile.Username} et synchronisée sur Supabase.";
         }
         else
         {
-            _notification = $"Carte « {saved.Name} » ({saved.SourceApi}) enregistrée dans la base de données.";
+            _notification = $"Carte « {saved.Name} » ({saved.RarityLabel}) ajoutée au catalogue Supabase.";
         }
-    }
-
-    private async Task DeleteCardAsync(Guid id)
-    {
-        await BiodiversityService.DeleteCardAsync(id);
-        _savedCards = await BiodiversityService.GetSavedCardsAsync();
-        if (Session.CurrentProfile is not null)
-        {
-            var refreshed = await UserService.GetProfileWithInventoryAsync(Session.CurrentProfile.Id);
-            if (refreshed is not null)
-            {
-                Session.SetSession(refreshed);
-            }
-        }
-        _notification = "Carte supprimée de la base de données.";
     }
 }

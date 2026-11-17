@@ -49,7 +49,10 @@ public record PlayerCardDto(
     double WeightKg,
     string PolaroidFinish,
     string ObtainedVia,
-    DateTimeOffset AcquiredAt
+    DateTimeOffset AcquiredAt,
+    string RarityLabel = "Commune",
+    long NaturalOccurrencesCount = 0,
+    double DropRatePercent = 60.0
 );
 
 /// <summary>

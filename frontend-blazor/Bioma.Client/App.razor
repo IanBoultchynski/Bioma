@@ -8,8 +8,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
     <title>Bioma · Collection Scientifique &amp; Biodiversité</title>
-    <link rel="stylesheet" href="/css/bioma.css?v=6" />
-    <link rel="stylesheet" href="/css/tirage.css?v=1" />
+    <link rel="stylesheet" href="/css/bioma.css?v=9" />
+    <link rel="stylesheet" href="/css/tirage.css?v=9" />
     @if (!string.IsNullOrEmpty(_inlineCss))
     {
         <style>@((MarkupString)_inlineCss)</style>
@@ -25,21 +25,31 @@
 </html>
 
 @code {
+    private static string? _cachedInlineCss;
     private string? _inlineCss;
 
     protected override void OnInitialized()
     {
-        var candidates = new[]
+        if (_cachedInlineCss is null)
         {
-            Path.Combine(Env.ContentRootPath, "wwwroot", "css", "bioma.css"),
-            Path.Combine(AppContext.BaseDirectory, "wwwroot", "css", "bioma.css"),
-            @"w:\bioma\frontend-blazor\Bioma.Client\wwwroot\css\bioma.css"
-        };
+            var sb = new System.Text.StringBuilder();
+            foreach (var fileName in new[] { "bioma.css", "tirage.css" })
+            {
+                var candidates = new[]
+                {
+                    Path.Combine(Env.ContentRootPath, "wwwroot", "css", fileName),
+                    Path.Combine(AppContext.BaseDirectory, "wwwroot", "css", fileName),
+                    Path.Combine(@"w:\bioma\frontend-blazor\Bioma.Client\wwwroot\css", fileName)
+                };
 
-        var path = candidates.FirstOrDefault(File.Exists);
-        if (path != null)
-        {
-            _inlineCss = File.ReadAllText(path);
+                var path = candidates.FirstOrDefault(File.Exists);
+                if (path != null)
+                {
+                    sb.AppendLine(File.ReadAllText(path));
+                }
+            }
+            _cachedInlineCss = sb.ToString();
         }
+        _inlineCss = _cachedInlineCss;
     }
 }

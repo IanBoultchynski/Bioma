@@ -24,7 +24,7 @@ public record GachaBannerDto(
 );
 
 /// <summary>
-/// Une carte obtenue lors d'un tirage, avec sa rareté clairement indiquée (US-29, US-30).
+/// Une carte obtenue lors d'un tirage, avec sa rareté clairement indiquée et ses statistiques (US-28, US-29, US-30).
 /// </summary>
 public record GachaDrawnCardDto(
     Guid PlayerCardId,
@@ -35,7 +35,13 @@ public record GachaDrawnCardDto(
     string ImageUrl,
     CardRarity Rarity,
     string RarityLabel,
-    bool IsNew // true si le joueur ne possédait pas encore cette espèce
+    bool IsNew, // true si le joueur ne possédait pas encore cette espèce
+    long NaturalOccurrencesCount = 0,
+    double DropRatePercent = 60.0,
+    int Attack = 40,
+    int Defense = 35,
+    int Speed = 45,
+    bool IsInActiveDeck = false
 );
 
 /// <summary>

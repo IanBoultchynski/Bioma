@@ -38,6 +38,7 @@ public class UserProfileService : IUserProfileService
     private static readonly string DummyHash = HashPassword("BiomaSafetyDummyPassword2026!");
 
     private readonly BiomaDbContext _db;
+    private readonly SemaphoreSlim _gate = new(1, 1);
 
     public UserProfileService(BiomaDbContext db)
     {
@@ -264,7 +265,21 @@ public class UserProfileService : IUserProfileService
 
     public async Task<UserProfileDto?> GetProfileWithInventoryAsync(Guid playerId, CancellationToken ct = default)
     {
+        await _gate.WaitAsync(ct);
+        try
+        {
+            return await GetProfileWithInventoryCoreAsync(playerId, ct);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private async Task<UserProfileDto?> GetProfileWithInventoryCoreAsync(Guid playerId, CancellationToken ct = default)
+    {
         var player = await _db.Players
+            .AsNoTracking()
             .Include(p => p.InventoryCards)
                 .ThenInclude(pc => pc.SpeciesCard)
             .FirstOrDefaultAsync(p => p.Id == playerId, ct);
@@ -274,11 +289,9 @@ public class UserProfileService : IUserProfileService
             return null;
         }
 
-        if (string.IsNullOrWhiteSpace(player.AvatarUrl) || player.AvatarUrl.StartsWith(LegacyUnsplashAvatar, StringComparison.OrdinalIgnoreCase))
-        {
-            player.AvatarUrl = BuildDefaultAvatarSvg(player.Username);
-            await _db.SaveChangesAsync(ct);
-        }
+        string avatarUrl = string.IsNullOrWhiteSpace(player.AvatarUrl) || player.AvatarUrl.StartsWith(LegacyUnsplashAvatar, StringComparison.OrdinalIgnoreCase)
+            ? BuildDefaultAvatarSvg(player.Username)
+            : player.AvatarUrl;
 
         var inventoryDtos = player.InventoryCards
             .OrderByDescending(pc => pc.IsInActiveDeck)
@@ -297,7 +310,7 @@ public class UserProfileService : IUserProfileService
             player.Id,
             player.Username,
             player.Email,
-            player.AvatarUrl,
+            avatarUrl,
             player.PushNotificationsEnabled,
             player.CreatedAt,
             player.LastCloudSyncAt,
@@ -309,50 +322,72 @@ public class UserProfileService : IUserProfileService
 
     public async Task<PlayerGlobalStatsDto?> GetGlobalStatsAsync(Guid playerId, CancellationToken ct = default)
     {
-        var player = await _db.Players
-            .AsNoTracking()
-            .Include(p => p.InventoryCards)
-            .FirstOrDefaultAsync(p => p.Id == playerId, ct);
+        await _gate.WaitAsync(ct);
+        try
+        {
+            var player = await _db.Players
+                .AsNoTracking()
+                .Include(p => p.InventoryCards)
+                .FirstOrDefaultAsync(p => p.Id == playerId, ct);
 
-        return player is null ? null : BuildGlobalStats(player, player.InventoryCards);
+            return player is null ? null : BuildGlobalStats(player, player.InventoryCards);
+        }
+        finally
+        {
+            _gate.Release();
+        }
     }
 
     public async Task<UserProfileDto?> UpdateAvatarAsync(Guid playerId, string newAvatarUrl, CancellationToken ct = default)
     {
-        var player = await _db.Players.FirstOrDefaultAsync(p => p.Id == playerId, ct);
-        if (player is null)
+        await _gate.WaitAsync(ct);
+        try
         {
-            return null;
+            var player = await _db.Players.FirstOrDefaultAsync(p => p.Id == playerId, ct);
+            if (player is null)
+            {
+                return null;
+            }
+
+            player.AvatarUrl = string.IsNullOrWhiteSpace(newAvatarUrl)
+                ? BuildDefaultAvatarSvg(player.Username)
+                : newAvatarUrl.Trim();
+            player.LastCloudSyncAt = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync(ct);
+
+            return await GetProfileWithInventoryCoreAsync(playerId, ct);
         }
-
-        player.AvatarUrl = string.IsNullOrWhiteSpace(newAvatarUrl)
-            ? BuildDefaultAvatarSvg(player.Username)
-            : newAvatarUrl.Trim();
-        player.LastCloudSyncAt = DateTimeOffset.UtcNow;
-        await _db.SaveChangesAsync(ct);
-        await WriteCloudSnapshotAsync(playerId, ct);
-
-        return await GetProfileWithInventoryAsync(playerId, ct);
+        finally
+        {
+            _gate.Release();
+        }
     }
 
     public async Task<UserProfileDto?> ToggleCardInActiveDeckAsync(Guid playerId, Guid playerCardId, CancellationToken ct = default)
     {
-        var playerCard = await _db.PlayerCards
-            .FirstOrDefaultAsync(pc => pc.Id == playerCardId && pc.PlayerId == playerId, ct);
-
-        var player = await _db.Players.FirstOrDefaultAsync(p => p.Id == playerId, ct);
-
-        if (playerCard is null || player is null)
+        await _gate.WaitAsync(ct);
+        try
         {
-            return null;
+            var playerCard = await _db.PlayerCards
+                .FirstOrDefaultAsync(pc => pc.Id == playerCardId && pc.PlayerId == playerId, ct);
+
+            var player = await _db.Players.FirstOrDefaultAsync(p => p.Id == playerId, ct);
+
+            if (playerCard is null || player is null)
+            {
+                return null;
+            }
+
+            playerCard.IsInActiveDeck = !playerCard.IsInActiveDeck;
+            player.LastCloudSyncAt = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync(ct);
+
+            return await GetProfileWithInventoryCoreAsync(playerId, ct);
         }
-
-        playerCard.IsInActiveDeck = !playerCard.IsInActiveDeck;
-        player.LastCloudSyncAt = DateTimeOffset.UtcNow;
-        await _db.SaveChangesAsync(ct);
-        await WriteCloudSnapshotAsync(playerId, ct);
-
-        return await GetProfileWithInventoryAsync(playerId, ct);
+        finally
+        {
+            _gate.Release();
+        }
     }
 
     public async Task<CloudSyncResultDto?> SyncProgressionToCloudAsync(Guid playerId, CancellationToken ct = default)
@@ -760,13 +795,15 @@ public class UserProfileService : IUserProfileService
     private static PlayerCardDto MapToPlayerCardDto(PlayerCard pc)
     {
         var species = pc.SpeciesCard;
+        var rarityEnum = species?.Rarity ?? CardRarity.Commune;
+        string sciName = species?.ScientificName ?? "Species incognita";
         return new PlayerCardDto(
             pc.Id,
             pc.SpeciesCardId,
             species?.CommonName ?? "Espèce inconnue",
-            species?.ScientificName ?? "Species incognita",
+            sciName,
             species?.Family ?? "Animalia",
-            (species?.Rarity ?? CardRarity.Commune).ToString(),
+            rarityEnum.ToString(),
             (species?.Biome ?? BiomeType.ForetTemperee).ToString(),
             species?.ImageUrl ?? string.Empty,
             pc.CustomNickname,
@@ -781,7 +818,10 @@ public class UserProfileService : IUserProfileService
             pc.WeightKg,
             pc.PolaroidFinish,
             pc.ObtainedVia,
-            pc.AcquiredAt
+            pc.AcquiredAt,
+            GachaService.RarityLabel(rarityEnum),
+            GachaService.GetEstimatedNaturalOccurrences(sciName, rarityEnum),
+            GachaService.DropRateForRarity(rarityEnum)
         );
     }
 

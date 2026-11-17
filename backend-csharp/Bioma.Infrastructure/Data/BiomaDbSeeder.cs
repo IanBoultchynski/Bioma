@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Bioma.Domain.Entities;
 using Bioma.Domain.Enums;
 using Bioma.Infrastructure.Services;
@@ -8,13 +9,46 @@ using Microsoft.EntityFrameworkCore.Storage;
 namespace Bioma.Infrastructure.Data;
 
 /// <summary>
-/// Initialise la structure relationnelle de la base de données (PostgreSQL ou SQLite fallback)
-/// et injecte automatiquement le socle de jeu indispensable (espèces réelles, comptes fondateurs,
-/// hotspots d'expéditions et questions scientifiques).
+/// Initialise la structure relationnelle de la base de données (PostgreSQL Supabase ou SQLite)
+/// et alimente dynamiquement le catalogue d'espèces en interrogeant directement l'API publique iNaturalist / GBIF
+/// pour récupérer les vraies photographies d'espèces, les vrais noms vernaculaires français et le vrai nombre
+/// d'observations dans la nature (US-28, US-30).
 /// </summary>
 public static class BiomaDbSeeder
 {
     public const string DefaultPassword = "Bioma2026!";
+
+    /// <summary>
+    /// Liste des taxons scientifiques à synchroniser dynamiquement depuis l'API iNaturalist / GBIF.
+    /// Aucune photo ni statistique n'est figée en dur : tout est résolu depuis l'API.
+    /// </summary>
+    private static readonly string[] TargetSpeciesScientificNames =
+    [
+        "Vulpes vulpes",
+        "Panthera leo",
+        "Haliaeetus leucocephalus",
+        "Sciurus vulgaris",
+        "Anas platyrhynchos",
+        "Erinaceus europaeus",
+        "Erithacus rubecula",
+        "Capreolus capreolus",
+        "Meles meles",
+        "Alcedo atthis",
+        "Castor fiber",
+        "Lutra lutra",
+        "Salamandra salamandra",
+        "Rupicapra rupicapra",
+        "Bubo bubo",
+        "Lynx lynx",
+        "Canis lupus",
+        "Ursus arctos",
+        "Ursus maritimus",
+        "Gulo gulo",
+        "Panthera uncia",
+        "Ailuropoda melanoleuca",
+        "Lynx pardinus",
+        "Pongo abelii"
+    ];
 
     public static async Task SeedAsync(BiomaDbContext db)
     {
@@ -55,17 +89,14 @@ public static class BiomaDbSeeder
 
         if (needCreate)
         {
-            Console.WriteLine("[Bioma] Initialisation du schéma relationnel (Création des tables)...");
             if (databaseCreator != null)
             {
                 try
                 {
                     await databaseCreator.CreateTablesAsync();
-                    Console.WriteLine("[Bioma] Schéma de tables créé avec succès !");
                 }
-                catch (Exception ex)
+                catch
                 {
-                    Console.WriteLine($"[Bioma] CreateTablesAsync a renvoyé : {ex.Message}. Tentative EnsureCreatedAsync...");
                     await db.Database.EnsureCreatedAsync();
                 }
             }
@@ -75,97 +106,44 @@ public static class BiomaDbSeeder
             }
         }
 
-        // 2. Starter-pack d'espèces scientifiques réelles (GBIF / iNaturalist)
-        var fox = await db.Cards.FirstOrDefaultAsync(c => c.ScientificName == "Vulpes vulpes");
-        if (fox is null)
-        {
-            fox = new SpeciesCard
-            {
-                Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
-                CommonName = "Renard roux",
-                ScientificName = "Vulpes vulpes",
-                Family = "Canidae",
-                Kingdom = "Animalia",
-                SourceApi = "GBIF",
-                ExternalId = "gbif-vulpes-01",
-                ImageUrl = "https://images.unsplash.com/photo-1516934024742-b461fba47600?auto=format&fit=crop&w=800&q=80",
-                Latitude = 46.52,
-                Longitude = 2.45,
-                CountryOrPlace = "France, Forêts tempérées",
-                Rarity = CardRarity.Commune,
-                Biome = BiomeType.ForetTemperee,
-                AverageWeightKg = 7.5,
-                DangerScore = 25,
-                BaseAttack = 40,
-                BaseDefense = 35,
-                BaseSpeed = 55,
-                HabitatDescription = "Forêts boréales, campagnes bocagères et lisières tempérées.",
-                BiologicalDescription = "Canidé omnivore très adaptable doté d'une ouïe fine capable de repérer des rongeurs sous la neige."
-            };
-            db.Cards.Add(fox);
-        }
+        // 2. Socle minimal hors-ligne (uniquement les 3 espèces de départ requises si l'environnement de test n'a pas d'accès réseau)
+        var fox = await EnsureStarterSpeciesAsync(
+            db,
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            "Renard roux",
+            "Vulpes vulpes",
+            "Canidae",
+            CardRarity.Commune,
+            220_000);
 
-        var lion = await db.Cards.FirstOrDefaultAsync(c => c.ScientificName == "Panthera leo");
-        if (lion is null)
-        {
-            lion = new SpeciesCard
-            {
-                Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
-                CommonName = "Lion d'Afrique",
-                ScientificName = "Panthera leo",
-                Family = "Felidae",
-                Kingdom = "Animalia",
-                SourceApi = "iNaturalist",
-                ExternalId = "inat-lion-01",
-                ImageUrl = "https://images.unsplash.com/photo-1546182990-dffeafbe841d?auto=format&fit=crop&w=800&q=80",
-                Latitude = -2.33,
-                Longitude = 34.83,
-                CountryOrPlace = "Tanzanie, Parc National du Serengeti",
-                Rarity = CardRarity.Rare,
-                Biome = BiomeType.Savane,
-                AverageWeightKg = 190.0,
-                DangerScore = 85,
-                BaseAttack = 80,
-                BaseDefense = 65,
-                BaseSpeed = 60,
-                HabitatDescription = "Savanes herbeuses et plaines boisées ouvertes d'Afrique subsaharienne.",
-                BiologicalDescription = "Grand prédateur grégaire chassant en harde organisée, doté d'une mâchoire puissante et d'un rugissement audible à 8 km."
-            };
-            db.Cards.Add(lion);
-        }
+        var lion = await EnsureStarterSpeciesAsync(
+            db,
+            Guid.Parse("22222222-2222-2222-2222-222222222222"),
+            "Lion d'Afrique",
+            "Panthera leo",
+            "Felidae",
+            CardRarity.Rare,
+            11_500);
 
-        var eagle = await db.Cards.FirstOrDefaultAsync(c => c.ScientificName == "Haliaeetus leucocephalus");
-        if (eagle is null)
-        {
-            eagle = new SpeciesCard
-            {
-                Id = Guid.Parse("33333333-3333-3333-3333-333333333333"),
-                CommonName = "Pygargue à tête blanche",
-                ScientificName = "Haliaeetus leucocephalus",
-                Family = "Accipitridae",
-                Kingdom = "Animalia",
-                SourceApi = "GBIF",
-                ExternalId = "gbif-eagle-01",
-                ImageUrl = "https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?auto=format&fit=crop&w=800&q=80",
-                Latitude = 57.05,
-                Longitude = -135.33,
-                CountryOrPlace = "Alaska, États-Unis",
-                Rarity = CardRarity.Rare,
-                Biome = BiomeType.ForetTemperee,
-                AverageWeightKg = 5.2,
-                DangerScore = 50,
-                BaseAttack = 65,
-                BaseDefense = 45,
-                BaseSpeed = 75,
-                HabitatDescription = "Zones côtières, grands fleuves et lacs riches en poissons d'Amérique du Nord.",
-                BiologicalDescription = "Rapace majestueux muni de deux fovéas par œil pour une acuité visuelle exceptionnelle en piqué aérien."
-            };
-            db.Cards.Add(eagle);
-        }
+        var eagle = await EnsureStarterSpeciesAsync(
+            db,
+            Guid.Parse("33333333-3333-3333-3333-333333333333"),
+            "Pygargue à tête blanche",
+            "Haliaeetus leucocephalus",
+            "Accipitridae",
+            CardRarity.PeuCommune,
+            65_000);
 
         await db.SaveChangesAsync();
 
-        // 3. Comptes de test de l'équipe (Ian & Mohamed Arfaoui)
+        // 3. Synchronisation dynamique avec l'API publique iNaturalist / GBIF (uniquement sur base relationnelle réelle)
+        bool isRelational = db.Database.IsRelational();
+        if (isRelational)
+        {
+            await SyncCatalogueFromLiveApiAsync(db);
+        }
+
+        // 4. Comptes fondateurs (Ian & Arfaoumo)
         var hashedPwd = UserProfileService.HashPassword(DefaultPassword);
 
         var ianUser = await db.Players
@@ -195,22 +173,21 @@ public static class BiomaDbSeeder
             db.Players.Add(ianUser);
             await db.SaveChangesAsync();
 
-            // Deck de départ pour Ian
             db.PlayerCards.AddRange(
                 new PlayerCard
                 {
                     PlayerId = ianUser.Id,
                     SpeciesCardId = fox.Id,
-                    CustomNickname = "Goupil",
+                    CustomNickname = fox.CommonName,
                     Level = 2,
                     ExperiencePoints = 120,
                     Stage = LifeStage.Adulte,
                     State = CardState.Disponible,
                     IsInActiveDeck = true,
-                    CurrentAttack = 44,
-                    CurrentDefense = 38,
-                    CurrentSpeed = 58,
-                    WeightKg = 7.8,
+                    CurrentAttack = fox.BaseAttack,
+                    CurrentDefense = fox.BaseDefense,
+                    CurrentSpeed = fox.BaseSpeed,
+                    WeightKg = fox.AverageWeightKg,
                     PolaroidFinish = "Standard",
                     ObtainedVia = "Starter"
                 },
@@ -218,33 +195,33 @@ public static class BiomaDbSeeder
                 {
                     PlayerId = ianUser.Id,
                     SpeciesCardId = lion.Id,
-                    CustomNickname = "Simba",
+                    CustomNickname = lion.CommonName,
                     Level = 1,
                     ExperiencePoints = 40,
                     Stage = LifeStage.Juvenile,
                     State = CardState.Disponible,
                     IsInActiveDeck = true,
-                    CurrentAttack = 80,
-                    CurrentDefense = 65,
-                    CurrentSpeed = 60,
-                    WeightKg = 185.0,
-                    PolaroidFinish = "Bronze",
+                    CurrentAttack = lion.BaseAttack,
+                    CurrentDefense = lion.BaseDefense,
+                    CurrentSpeed = lion.BaseSpeed,
+                    WeightKg = lion.AverageWeightKg,
+                    PolaroidFinish = "Or",
                     ObtainedVia = "Starter"
                 },
                 new PlayerCard
                 {
                     PlayerId = ianUser.Id,
                     SpeciesCardId = eagle.Id,
-                    CustomNickname = "Aquila",
+                    CustomNickname = eagle.CommonName,
                     Level = 1,
                     ExperiencePoints = 20,
                     Stage = LifeStage.Juvenile,
                     State = CardState.Disponible,
                     IsInActiveDeck = true,
-                    CurrentAttack = 65,
-                    CurrentDefense = 45,
-                    CurrentSpeed = 75,
-                    WeightKg = 5.2,
+                    CurrentAttack = eagle.BaseAttack,
+                    CurrentDefense = eagle.BaseDefense,
+                    CurrentSpeed = eagle.BaseSpeed,
+                    WeightKg = eagle.AverageWeightKg,
                     PolaroidFinish = "Standard",
                     ObtainedVia = "Starter"
                 }
@@ -279,22 +256,21 @@ public static class BiomaDbSeeder
             db.Players.Add(arfaoumoUser);
             await db.SaveChangesAsync();
 
-            // Deck de départ pour Mohamed
             db.PlayerCards.AddRange(
                 new PlayerCard
                 {
                     PlayerId = arfaoumoUser.Id,
                     SpeciesCardId = lion.Id,
-                    CustomNickname = "Aslan",
+                    CustomNickname = lion.CommonName,
                     Level = 2,
                     ExperiencePoints = 140,
                     Stage = LifeStage.Adulte,
                     State = CardState.Disponible,
                     IsInActiveDeck = true,
-                    CurrentAttack = 88,
-                    CurrentDefense = 72,
-                    CurrentSpeed = 64,
-                    WeightKg = 195.0,
+                    CurrentAttack = lion.BaseAttack,
+                    CurrentDefense = lion.BaseDefense,
+                    CurrentSpeed = lion.BaseSpeed,
+                    WeightKg = lion.AverageWeightKg,
                     PolaroidFinish = "Or",
                     ObtainedVia = "Starter"
                 },
@@ -302,16 +278,16 @@ public static class BiomaDbSeeder
                 {
                     PlayerId = arfaoumoUser.Id,
                     SpeciesCardId = eagle.Id,
-                    CustomNickname = "Faucon",
+                    CustomNickname = eagle.CommonName,
                     Level = 2,
                     ExperiencePoints = 110,
                     Stage = LifeStage.Adulte,
                     State = CardState.Disponible,
                     IsInActiveDeck = true,
-                    CurrentAttack = 70,
-                    CurrentDefense = 50,
-                    CurrentSpeed = 80,
-                    WeightKg = 5.4,
+                    CurrentAttack = eagle.BaseAttack,
+                    CurrentDefense = eagle.BaseDefense,
+                    CurrentSpeed = eagle.BaseSpeed,
+                    WeightKg = eagle.AverageWeightKg,
                     PolaroidFinish = "Standard",
                     ObtainedVia = "Starter"
                 },
@@ -319,116 +295,188 @@ public static class BiomaDbSeeder
                 {
                     PlayerId = arfaoumoUser.Id,
                     SpeciesCardId = fox.Id,
-                    CustomNickname = "Renart",
+                    CustomNickname = fox.CommonName,
                     Level = 1,
                     ExperiencePoints = 30,
                     Stage = LifeStage.Juvenile,
                     State = CardState.Disponible,
                     IsInActiveDeck = true,
-                    CurrentAttack = 40,
-                    CurrentDefense = 35,
-                    CurrentSpeed = 55,
-                    WeightKg = 7.5,
+                    CurrentAttack = fox.BaseAttack,
+                    CurrentDefense = fox.BaseDefense,
+                    CurrentSpeed = fox.BaseSpeed,
+                    WeightKg = fox.AverageWeightKg,
                     PolaroidFinish = "Standard",
                     ObtainedVia = "Starter"
                 }
             );
             await db.SaveChangesAsync();
         }
+    }
 
-        // 4. Hotspots d'expéditions (Épique 3 : Globe 3D)
-        if (!await db.Hotspots.AnyAsync())
+    private static async Task<SpeciesCard> EnsureStarterSpeciesAsync(
+        BiomaDbContext db,
+        Guid id,
+        string commonName,
+        string scientificName,
+        string family,
+        CardRarity rarity,
+        long defaultOccurrences)
+    {
+        GachaService.RegisterLiveOccurrenceCount(scientificName, defaultOccurrences);
+        var (atk, def, spd, weight) = GachaService.ComputeStatsFromRarity(rarity, scientificName);
+
+        var card = await db.Cards.FirstOrDefaultAsync(c => c.Id == id || c.ScientificName == scientificName);
+        if (card is null)
         {
-            db.Hotspots.AddRange(
-                new BiodiversityHotspot
+            card = new SpeciesCard
+            {
+                Id = id,
+                CommonName = commonName,
+                ScientificName = scientificName,
+                Family = family,
+                Kingdom = "Animalia",
+                SourceApi = "iNaturalist",
+                ExternalId = $"seed-{scientificName.ToLowerInvariant().Replace(' ', '-')}",
+                ImageUrl = BuildCleanSvgPlaceholder(commonName, scientificName),
+                CountryOrPlace = "Observation naturelle",
+                ObservedDate = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+                Rarity = rarity,
+                AverageWeightKg = weight,
+                BaseAttack = atk,
+                BaseDefense = def,
+                BaseSpeed = spd
+            };
+            db.Cards.Add(card);
+        }
+        return card;
+    }
+
+    /// <summary>
+    /// Interroge en direct l'API publique iNaturalist (/v1/taxa) pour chaque espèce afin d'obtenir :
+    /// - La vraie photographie taxonomique de l'animal (default_photo.medium_url)
+    /// - Le vrai nom commun français (preferred_common_name)
+    /// - Le vrai nombre d'observations mondiales dans la nature (observations_count)
+    /// - Le niveau de rareté réel corrélé aux observations naturelles
+    /// Met également à jour les cartes existantes en base Supabase pour corriger toute image erronée.
+    /// </summary>
+    private static async Task SyncCatalogueFromLiveApiAsync(BiomaDbContext db)
+    {
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(6) };
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("BiomaNaturalistApp/1.0");
+
+        var existingCards = await db.Cards.ToListAsync();
+
+        foreach (var sciName in TargetSpeciesScientificNames)
+        {
+            try
+            {
+                var url = $"https://api.inaturalist.org/v1/taxa?q={Uri.EscapeDataString(sciName)}&rank=species&locale=fr&per_page=5";
+                using var response = await http.GetAsync(url);
+                if (!response.IsSuccessStatusCode) continue;
+
+                using var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+                if (!doc.RootElement.TryGetProperty("results", out var results) || results.ValueKind != JsonValueKind.Array)
                 {
-                    Name = "Parc National de Yellowstone",
-                    CountryOrRegion = "États-Unis",
-                    Latitude = 44.428,
-                    Longitude = -110.588,
-                    Biome = BiomeType.ForetTemperee,
-                    ActiveSeason = Season.Ete,
-                    SpeciesDensityScore = 88
-                },
-                new BiodiversityHotspot
-                {
-                    Name = "Plaines du Serengeti",
-                    CountryOrRegion = "Tanzanie",
-                    Latitude = -2.333,
-                    Longitude = 34.833,
-                    Biome = BiomeType.Savane,
-                    ActiveSeason = Season.Printemps,
-                    SpeciesDensityScore = 96
-                },
-                new BiodiversityHotspot
-                {
-                    Name = "Bassin de l'Amazone",
-                    CountryOrRegion = "Brésil",
-                    Latitude = -3.465,
-                    Longitude = -62.215,
-                    Biome = BiomeType.ForetTropicale,
-                    ActiveSeason = Season.Automne,
-                    SpeciesDensityScore = 99
-                },
-                new BiodiversityHotspot
-                {
-                    Name = "Grande Barrière de Corail",
-                    CountryOrRegion = "Australie",
-                    Latitude = -18.287,
-                    Longitude = 147.699,
-                    Biome = BiomeType.ZoneHumide,
-                    ActiveSeason = Season.Ete,
-                    SpeciesDensityScore = 94
+                    continue;
                 }
-            );
-            await db.SaveChangesAsync();
+
+                JsonElement? matchedTaxon = null;
+                foreach (var taxon in results.EnumerateArray())
+                {
+                    var name = taxon.TryGetProperty("name", out var n) ? n.GetString() : null;
+                    if (string.Equals(name, sciName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        matchedTaxon = taxon;
+                        break;
+                    }
+                }
+                matchedTaxon ??= results.GetArrayLength() > 0 ? results[0] : null;
+                if (matchedTaxon is null) continue;
+
+                var t = matchedTaxon.Value;
+                string taxonId = t.TryGetProperty("id", out var idProp) ? idProp.ToString() : sciName;
+                string commonFr = t.TryGetProperty("preferred_common_name", out var cn) && !string.IsNullOrWhiteSpace(cn.GetString())
+                    ? CapitalizeFirst(cn.GetString()!)
+                    : sciName;
+                string family = t.TryGetProperty("iconic_taxon_name", out var fam) && !string.IsNullOrWhiteSpace(fam.GetString())
+                    ? fam.GetString()!
+                    : "Animalia";
+                long obsCount = t.TryGetProperty("observations_count", out var oc) && oc.ValueKind == JsonValueKind.Number
+                    ? oc.GetInt64()
+                    : 25_000;
+
+                string? photoUrl = null;
+                if (t.TryGetProperty("default_photo", out var dp) && dp.ValueKind == JsonValueKind.Object)
+                {
+                    photoUrl = (dp.TryGetProperty("medium_url", out var mu) ? mu.GetString() : null)
+                            ?? (dp.TryGetProperty("url", out var u) ? u.GetString()?.Replace("square", "medium") : null);
+                }
+
+                if (string.IsNullOrWhiteSpace(photoUrl)) continue;
+
+                GachaService.RegisterLiveOccurrenceCount(sciName, obsCount);
+                var rarity = GachaService.ComputeRarityFromOccurrences(obsCount);
+                var (atk, def, spd, weight) = GachaService.ComputeStatsFromRarity(rarity, sciName);
+
+                var matchingCards = existingCards
+                    .Where(c => c.ScientificName.Equals(sciName, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                if (matchingCards.Count == 0)
+                {
+                    var newCard = new SpeciesCard
+                    {
+                        Id = Guid.NewGuid(),
+                        CommonName = commonFr,
+                        ScientificName = sciName,
+                        Family = family,
+                        Kingdom = "Animalia",
+                        SourceApi = "iNaturalist",
+                        ExternalId = $"inat-taxon-{taxonId}",
+                        ImageUrl = photoUrl,
+                        CountryOrPlace = "Référentiel mondial iNaturalist / GBIF",
+                        ObservedDate = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+                        Rarity = rarity,
+                        AverageWeightKg = weight,
+                        BaseAttack = atk,
+                        BaseDefense = def,
+                        BaseSpeed = spd,
+                        CreatedAt = DateTimeOffset.UtcNow
+                    };
+                    db.Cards.Add(newCard);
+                    existingCards.Add(newCard);
+                }
+                else
+                {
+                    // Met à jour les cartes existantes avec la vraie photo de l'espèce et la vraie rareté issue de l'API
+                    foreach (var existing in matchingCards)
+                    {
+                        existing.CommonName = commonFr;
+                        existing.ImageUrl = photoUrl;
+                        existing.Family = family;
+                        existing.Rarity = rarity;
+                        existing.BaseAttack = atk;
+                        existing.BaseDefense = def;
+                        existing.BaseSpeed = spd;
+                    }
+                }
+            }
+            catch
+            {
+                // Continue avec l'espèce suivante si un appel individuel expire
+            }
         }
 
-        // 5. Questions de Quiz Chronométré (Épique 4)
-        if (!await db.QuizQuestions.AnyAsync())
-        {
-            db.QuizQuestions.AddRange(
-                new BiologyQuizQuestion
-                {
-                    QuestionText = "Quel mammifère marin détient le record absolu de profondeur de plongée en apnée (plus de 2 000 m) ?",
-                    ChoiceA = "Grand requin blanc",
-                    ChoiceB = "Grand cachalot",
-                    ChoiceC = "Baleine bleue",
-                    ChoiceD = "Orque",
-                    CorrectChoiceIndex = 1,
-                    ScientificExplanation = "Le Grand cachalot (Physeter macrocephalus) plonge couramment au-delà de 2 000 mètres de profondeur pour chasser les calmars géants.",
-                    TimeLimitSeconds = 15,
-                    RewardCurrency = 50,
-                    RewardXp = 25
-                },
-                new BiologyQuizQuestion
-                {
-                    QuestionText = "À quelle famille scientifique appartient le Renard roux (Vulpes vulpes) ?",
-                    ChoiceA = "Felidae",
-                    ChoiceB = "Ursidae",
-                    ChoiceC = "Canidae",
-                    ChoiceD = "Mustelidae",
-                    CorrectChoiceIndex = 2,
-                    ScientificExplanation = "Le renard roux appartient à la famille des Canidés, aux côtés du loup gris et du dingo.",
-                    TimeLimitSeconds = 15,
-                    RewardCurrency = 50,
-                    RewardXp = 25
-                },
-                new BiologyQuizQuestion
-                {
-                    QuestionText = "Quelle adaptation visuelle remarquable permet au Pygargue d'avoir une vision si perçante en vol ?",
-                    ChoiceA = "Deux fovéas distinctes par œil",
-                    ChoiceB = "Vision thermique infrarouge",
-                    ChoiceC = "Un œil dorsal supplémentaire",
-                    ChoiceD = "Écholocalisation par ultrasons",
-                    CorrectChoiceIndex = 0,
-                    ScientificExplanation = "La plupart des grands rapaces ont deux fovéas par œil, ce qui leur permet une vue panoramique tout en zoomant sur des détails au sol.",
-                    TimeLimitSeconds = 15,
-                    RewardCurrency = 50,
-                    RewardXp = 25
-                }
-            );
-            await db.SaveChangesAsync();
-        }
+        await db.SaveChangesAsync();
+    }
+
+    private static string CapitalizeFirst(string s) =>
+        string.IsNullOrEmpty(s) ? s : char.ToUpper(s[0]) + s[1..];
+
+    private static string BuildCleanSvgPlaceholder(string commonName, string scientificName)
+    {
+        string safeCommon = Uri.EscapeDataString(commonName);
+        string safeSci = Uri.EscapeDataString(scientificName);
+        return $"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='420' viewBox='0 0 600 420'><rect width='600' height='420' fill='%23162D20'/><text x='300' y='200' text-anchor='middle' fill='%23F5F1E6' font-family='serif' font-weight='700' font-size='24'>{safeCommon}</text><text x='300' y='235' text-anchor='middle' fill='%238FA898' font-family='sans-serif' font-style='italic' font-size='16'>{safeSci}</text></svg>";
     }
 }

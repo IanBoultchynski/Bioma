@@ -1,33 +1,131 @@
+/* =========================================================
+   SYSTÈME DE COULEURS DES RARETÉS & AURAS DE TIRAGE (US-28 & US-30)
+   - Commune      : Vert Émeraude (#2E9E5B)
+   - Peu commune  : Bleu Saphir   (#2980B9)
+   - Rare         : Violet Royal  (#9333EA)
+   - Légendaire   : Or Solaire    (#F59E0B)
+   ========================================================= */
+:root {
+    --rarity-commune-color: #2E9E5B;
+    --rarity-commune-bg: rgba(46, 158, 91, 0.18);
+    --rarity-commune-border: rgba(72, 187, 120, 0.65);
+
+    --rarity-peu-commune-color: #2980B9;
+    --rarity-peu-commune-bg: rgba(41, 128, 185, 0.20);
+    --rarity-peu-commune-border: rgba(56, 189, 248, 0.70);
+
+    --rarity-rare-color: #9333EA;
+    --rarity-rare-bg: rgba(147, 51, 234, 0.22);
+    --rarity-rare-border: rgba(168, 85, 247, 0.80);
+
+    --rarity-legendaire-color: #D97706;
+    --rarity-legendaire-bg: rgba(245, 158, 11, 0.24);
+    --rarity-legendaire-border: rgba(251, 191, 36, 0.92);
+}
+
 .gacha-panel {
-    background: rgba(24, 48, 35, 0.55);
-    border: 1px solid var(--figma-border);
-    border-radius: 8px;
+    background: rgba(24, 48, 35, 0.65);
+    border: 1px solid var(--figma-border-strong);
+    border-radius: 10px;
     padding: 1.35rem;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
 }
 
 .gacha-stage {
-    min-height: 380px;
+    min-height: 430px;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    transition: background 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+}
+
+/* =========================================================
+   EFFET D'AURA LUMINEUSE SELON LA PLUS GRANDE RARETÉ PIOCHÉE
+   ========================================================= */
+.gacha-stage.gacha-aura-commune {
+    background:
+        radial-gradient(circle at 50% 42%, rgba(46, 158, 91, 0.36) 0%, rgba(24, 48, 35, 0.75) 62%),
+        rgba(20, 42, 30, 0.85);
+    border-color: rgba(72, 187, 120, 0.75);
+    box-shadow: 0 0 32px rgba(46, 158, 91, 0.30), inset 0 0 40px rgba(46, 158, 91, 0.16);
+}
+
+.gacha-stage.gacha-aura-peu-commune {
+    background:
+        radial-gradient(circle at 50% 42%, rgba(56, 189, 248, 0.38) 0%, rgba(20, 45, 58, 0.78) 62%),
+        rgba(18, 38, 46, 0.85);
+    border-color: rgba(56, 189, 248, 0.82);
+    box-shadow: 0 0 38px rgba(41, 128, 185, 0.42), inset 0 0 48px rgba(56, 189, 248, 0.20);
+    animation: aura-pulse-blue 2.2s ease-in-out infinite alternate;
+}
+
+.gacha-stage.gacha-aura-rare {
+    background:
+        radial-gradient(circle at 50% 42%, rgba(168, 85, 247, 0.46) 0%, rgba(48, 22, 68, 0.78) 64%),
+        rgba(28, 18, 42, 0.88);
+    border-color: rgba(192, 132, 252, 0.90);
+    box-shadow: 0 0 46px rgba(147, 51, 234, 0.55), inset 0 0 60px rgba(168, 85, 247, 0.26);
+    animation: aura-pulse-rare 1.8s ease-in-out infinite alternate;
+}
+
+.gacha-stage.gacha-aura-legendaire {
+    background:
+        radial-gradient(circle at 50% 42%, rgba(253, 224, 71, 0.52) 0%, rgba(217, 119, 6, 0.32) 42%, rgba(45, 32, 12, 0.82) 70%),
+        rgba(34, 26, 12, 0.90);
+    border: 2px solid #FDE047;
+    box-shadow: 0 0 58px rgba(245, 158, 11, 0.75), inset 0 0 75px rgba(251, 191, 36, 0.32);
+    animation: aura-pulse-legendaire 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes aura-pulse-blue {
+    from { box-shadow: 0 0 26px rgba(41, 128, 185, 0.35), inset 0 0 35px rgba(56, 189, 248, 0.16); }
+    to   { box-shadow: 0 0 46px rgba(56, 189, 248, 0.60), inset 0 0 55px rgba(56, 189, 248, 0.28); }
+}
+
+@keyframes aura-pulse-rare {
+    from { box-shadow: 0 0 32px rgba(147, 51, 234, 0.45), inset 0 0 45px rgba(168, 85, 247, 0.20); }
+    to   { box-shadow: 0 0 58px rgba(168, 85, 247, 0.78), inset 0 0 70px rgba(192, 132, 252, 0.36); }
+}
+
+@keyframes aura-pulse-legendaire {
+    from { box-shadow: 0 0 38px rgba(245, 158, 11, 0.55), inset 0 0 50px rgba(251, 191, 36, 0.24); }
+    to   { box-shadow: 0 0 72px rgba(253, 224, 71, 0.95), inset 0 0 90px rgba(253, 224, 71, 0.45); }
+}
+
+.aura-developing-indicator {
+    margin-top: 0.75rem;
+    padding: 0.45rem 1rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: var(--figma-cream);
 }
 
 .gacha-odds-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.45rem 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    font-size: 0.86rem;
+    padding: 0.52rem 0.65rem;
+    margin-bottom: 0.35rem;
+    border-radius: 6px;
+    background: rgba(12, 26, 18, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    font-size: 0.84rem;
 }
 
 .gacha-error {
-    padding: 0.55rem 0.75rem;
+    padding: 0.65rem 0.85rem;
     margin-bottom: 0.85rem;
-    border-radius: 5px;
-    background: rgba(220, 75, 75, 0.2);
-    border: 1px solid rgba(220, 75, 75, 0.5);
-    font-size: 0.8rem;
+    border-radius: 6px;
+    background: rgba(220, 75, 75, 0.22);
+    border: 1px solid rgba(220, 75, 75, 0.55);
+    font-size: 0.82rem;
 }
 
 .gacha-empty {
@@ -39,12 +137,6 @@
     color: var(--figma-text-muted);
     font-size: 0.85rem;
     width: 100%;
-}
-
-.gacha-idle-camera {
-    width: min(420px, 100%);
-    aspect-ratio: 1;
-    object-fit: contain;
 }
 
 .polaroid-reveal {
@@ -61,9 +153,9 @@
 
 .polaroid-reveal-media {
     position: absolute;
-    left: -63.64%;    /* -280 / 440 */
-    top: -75%;        /* -330 / 440 */
-    width: 245.45%;   /* 1080 / 440 */
+    left: -63.64%;
+    top: -75%;
+    width: 245.45%;
     height: 245.45%;
     max-width: none;
 }
@@ -75,8 +167,8 @@
     width: var(--photo-size);
     box-shadow: none;
     border-radius: 0;
-    background: #8F8F8F;              
-    transition: background 2.2s ease; 
+    background: #8F8F8F;
+    transition: background 2.2s ease;
 }
 
 .polaroid-reveal .polaroid-print.is-developed {
@@ -85,13 +177,19 @@
 
 .polaroid-print {
     position: relative;
-    width: 150px;
+    width: 158px;
     aspect-ratio: 1;
     background: #F7F5EF;
-    border-radius: 2px;
+    border-radius: 4px;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
     container-type: inline-size;
     color: #2B2B2B;
+    border: 2px solid transparent;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.polaroid-print:hover {
+    transform: translateY(-3px);
 }
 
 .polaroid-print-window {
@@ -99,6 +197,7 @@
     inset: 12.5%;
     background: #141414;
     overflow: hidden;
+    border-radius: 2px;
 }
 
 .polaroid-print-window img {
@@ -120,7 +219,7 @@
     position: absolute;
     top: 4%;
     right: 4%;
-    font-size: 4.2cqw;
+    font-size: 4.5cqw;
     opacity: 0;
     transition: opacity 0.4s ease 1.8s;
 }
@@ -129,10 +228,11 @@
     opacity: 1;
 }
 
+/* Anti-spoiler : la légende du Polaroïd reste invisible tant que la photo n'est pas développée */
 .polaroid-print-caption {
     position: absolute;
-    left: 12.5%;
-    right: 12.5%;
+    left: 10%;
+    right: 10%;
     bottom: 0;
     height: 12.5%;
     display: flex;
@@ -142,33 +242,76 @@
     font-family: "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
     font-size: 5.2cqw;
     line-height: 1;
+    opacity: 0;
+    transition: opacity 0.45s ease 1.85s;
+}
+
+.polaroid-print.is-developed .polaroid-print-caption {
+    opacity: 1;
 }
 
 .polaroid-print-name {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-weight: 700;
 }
 
 .polaroid-print .gacha-new {
-    font-size: 4cqw;
-    font-weight: 700;
-    color: #2E6F40;
+    font-size: 3.8cqw;
+    font-weight: 800;
+    color: #fff;
+    background: #16A34A;
+    padding: 1px 4px;
+    border-radius: 3px;
     flex-shrink: 0;
+    font-family: system-ui, sans-serif;
+}
+
+.polaroid-print.is-developed.rarity-commune {
+    border-color: #2E9E5B;
+    box-shadow: 0 0 0 2px #2E9E5B, 0 8px 18px rgba(46, 158, 91, 0.32);
+}
+
+.polaroid-print.is-developed.rarity-peu-commune {
+    border-color: #2980B9;
+    box-shadow: 0 0 0 2px #2980B9, 0 8px 20px rgba(41, 128, 185, 0.42);
 }
 
 .polaroid-print.is-developed.rarity-rare {
-    box-shadow: 0 0 0 2px #D4922A, 0 0 22px rgba(212, 146, 42, 0.55);
+    border-color: #9333EA;
+    box-shadow: 0 0 0 2.5px #9333EA, 0 0 24px rgba(147, 51, 234, 0.65);
 }
 
 .polaroid-print.is-developed.rarity-legendaire {
-    box-shadow: 0 0 0 2px var(--figma-gold), 0 0 32px rgba(222, 184, 97, 0.8);
-    animation: gacha-glow 1.6s ease-in-out infinite alternate;
+    border-color: #F59E0B;
+    box-shadow: 0 0 0 3px #F59E0B, 0 0 34px rgba(245, 158, 11, 0.9);
+    animation: gacha-glow 1.5s ease-in-out infinite alternate;
 }
 
 @keyframes gacha-glow {
-    from { box-shadow: 0 0 0 2px var(--figma-gold), 0 0 18px rgba(222, 184, 97, 0.5); }
-    to   { box-shadow: 0 0 0 2px var(--figma-gold), 0 0 38px rgba(222, 184, 97, 0.95); }
+    from { box-shadow: 0 0 0 2.5px #F59E0B, 0 0 18px rgba(245, 158, 11, 0.55); }
+    to   { box-shadow: 0 0 0 3.5px #FDE047, 0 0 38px rgba(245, 158, 11, 0.98); }
+}
+
+.polaroid-card.rarity-border-commune {
+    border-bottom: 4px solid #2E9E5B;
+}
+
+.polaroid-card.rarity-border-peu-commune {
+    border-bottom: 4px solid #2980B9;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.38), 0 0 12px rgba(41, 128, 185, 0.25);
+}
+
+.polaroid-card.rarity-border-rare {
+    border-bottom: 4px solid #9333EA;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42), 0 0 18px rgba(147, 51, 234, 0.38);
+}
+
+.polaroid-card.rarity-border-legendaire {
+    border: 2px solid #F59E0B;
+    border-bottom: 5px solid #D97706;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45), 0 0 24px rgba(245, 158, 11, 0.55);
 }
 
 /* --- Grille du tirage ×10 --- */
@@ -176,19 +319,19 @@
     width: 100%;
     margin-top: 1.25rem;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: 0.9rem;
+    grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+    gap: 1rem;
     justify-items: center;
 }
 
 .gacha-grid .polaroid-print,
 .gacha-grid .gacha-card-back {
-    width: 120px;
+    width: 132px;
 }
 
 .gacha-card-back {
     aspect-ratio: 1;
-    border-radius: 2px;
+    border-radius: 4px;
     border: 2px solid var(--figma-border-strong);
     background:
         radial-gradient(circle at 50% 50%, rgba(222, 184, 97, 0.35) 0 22%, transparent 23%),
@@ -204,21 +347,164 @@
     to   { transform: rotateY(0) scale(1); opacity: 1; }
 }
 
-/* --- Badges de rareté --- */
+/* --- Badges de rareté avec couleurs distinctes (US-30) --- */
 .rarity-badge {
-    display: inline-block;
-    padding: 1px 7px;
-    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 2px 8px;
+    border-radius: 999px;
     font-size: 0.66rem;
     font-weight: 700;
     color: #fff;
-    letter-spacing: 0.02em;
-    font-family: system-ui, sans-serif;
+    letter-spacing: 0.03em;
+    font-family: system-ui, -apple-system, sans-serif;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    text-transform: uppercase;
 }
 
-.rarity-badge.commune     { background: #5B9A68; }
-.rarity-badge.peu-commune { background: #4A8DB7; }
-.rarity-badge.rare        { background: #D4922A; }
-.rarity-badge.legendaire  { background: linear-gradient(90deg, #DEB861, #F3DD9B, #DEB861); color: #2A1F05; }
+.rarity-badge.commune {
+    background: linear-gradient(135deg, #237A46, #34A861);
+    border: 1px solid #68D391;
+    color: #F0FFF4;
+}
 
-.polaroid-dot.legendaire { background: var(--figma-gold); }
+.rarity-badge.peu-commune {
+    background: linear-gradient(135deg, #1B6CA8, #2E9CCA);
+    border: 1px solid #76E4F7;
+    color: #EBF8FF;
+}
+
+.rarity-badge.rare {
+    background: linear-gradient(135deg, #6B21A8, #9333EA, #A855F7);
+    border: 1px solid #D8B4FE;
+    color: #FAF5FF;
+    box-shadow: 0 2px 10px rgba(147, 51, 234, 0.5);
+}
+
+.rarity-badge.legendaire {
+    background: linear-gradient(90deg, #B45309, #F59E0B, #FDE047, #F59E0B);
+    border: 1px solid #FEF08A;
+    color: #1C1302;
+    font-weight: 800;
+    box-shadow: 0 2px 14px rgba(245, 158, 11, 0.7);
+}
+
+.rarity-spotlight-banner {
+    width: 100%;
+    margin-top: 1rem;
+    padding: 0.9rem 1.15rem;
+    border-radius: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.85rem;
+    animation: spotlight-fade-in 0.4s ease-out;
+}
+
+@keyframes spotlight-fade-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.rarity-spotlight-banner.commune {
+    background: var(--rarity-commune-bg);
+    border: 1.5px solid var(--rarity-commune-border);
+}
+
+.rarity-spotlight-banner.peu-commune {
+    background: var(--rarity-peu-commune-bg);
+    border: 1.5px solid var(--rarity-peu-commune-border);
+}
+
+.rarity-spotlight-banner.rare {
+    background: var(--rarity-rare-bg);
+    border: 1.5px solid var(--rarity-rare-border);
+    box-shadow: 0 0 20px rgba(147, 51, 234, 0.25);
+}
+
+.rarity-spotlight-banner.legendaire {
+    background: var(--rarity-legendaire-bg);
+    border: 2px solid var(--rarity-legendaire-border);
+    box-shadow: 0 0 26px rgba(245, 158, 11, 0.35);
+}
+
+.polaroid-dot.commune     { background: #2E9E5B; }
+.polaroid-dot.peu-commune { background: #2980B9; }
+.polaroid-dot.rare        { background: #9333EA; }
+.polaroid-dot.legendaire  { background: #F59E0B; }
+
+/* =========================================================
+   QUIZ CHRONOMÉTRÉ & ANIMATION D'ÉCHEC TEMPS DÉPASSÉ (US-22 à US-26)
+   ========================================================= */
+.quiz-timer-track {
+    width: 100%;
+    height: 10px;
+    background: rgba(0, 0, 0, 0.42);
+    border-radius: 999px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    margin-bottom: 1.25rem;
+}
+
+.quiz-timer-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.2s linear, background-color 0.25s ease;
+}
+
+.quiz-choice-btn {
+    width: 100%;
+    text-align: left;
+    padding: 0.9rem 1.15rem;
+    border-radius: 8px;
+    border: 1.5px solid var(--figma-border-strong);
+    background: rgba(15, 32, 22, 0.65);
+    color: var(--figma-text);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.16s ease;
+}
+
+.quiz-choice-btn:hover:not(:disabled) {
+    border-color: var(--figma-gold);
+    background: rgba(234, 225, 202, 0.12);
+    transform: translateX(3px);
+}
+
+.quiz-choice-btn.correct {
+    border-color: #34D399;
+    background: rgba(16, 185, 129, 0.24);
+    color: #ECFDF5;
+    font-weight: 700;
+}
+
+.quiz-choice-btn.wrong {
+    border-color: #EF4444;
+    background: rgba(239, 68, 68, 0.24);
+    color: #FEF2F2;
+}
+
+.quiz-timeout-alert {
+    border: 2px solid #EF4444;
+    background: linear-gradient(135deg, rgba(153, 27, 27, 0.48), rgba(69, 10, 10, 0.72));
+    box-shadow: 0 0 28px rgba(239, 68, 68, 0.45);
+    animation: quiz-error-shake 0.55s cubic-bezier(0.36, 0.07, 0.19, 0.97) both, quiz-red-pulse 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes quiz-error-shake {
+    10%, 90% { transform: translate3d(-3px, 0, 0); }
+    20%, 80% { transform: translate3d(5px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-7px, 0, 0); }
+    40%, 60% { transform: translate3d(7px, 0, 0); }
+}
+
+@keyframes quiz-red-pulse {
+    from { box-shadow: 0 0 16px rgba(239, 68, 68, 0.35); }
+    to   { box-shadow: 0 0 36px rgba(239, 68, 68, 0.75); }
+}

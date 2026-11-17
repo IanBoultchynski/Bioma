@@ -76,11 +76,17 @@ public interface IExpeditionService
 /// </summary>
 public interface IQuizService
 {
-    // US-22 : Génération d'événements de quiz sur la biologie
-    // US-23 : Chronométrage strict et équitable côté serveur
-    // US-24 : Validation instantanée de la réponse
-    // US-25 : Récompense en monnaie virtuelle ou XP si bonne réponse
-    // US-26 : Gestion du dépassement de temps (échec sans récompense)
+    /// <summary>Consulte l'état du quiz quotidien (1 session de 3 questions aléatoires par jour) et l'historique du joueur.</summary>
+    Task<QuizDailyStatusDto> GetDailyStatusAsync(Guid playerId, CancellationToken ct = default);
+
+    /// <summary>US-22 &amp; US-23 : Génère une question aléatoire portant uniquement sur les cartes du catalogue et démarre le chronomètre serveur.</summary>
+    Task<QuizQuestionViewDto?> StartRandomCatalogueQuestionAsync(Guid playerId, CancellationToken ct = default);
+
+    /// <summary>US-23, US-24, US-25 &amp; US-26 : Vérifie le temps côté serveur, valide la réponse et attribue monnaie + XP (ou échec si temps dépassé).</summary>
+    Task<QuizAnswerResultDto> SubmitAnswerAsync(SubmitQuizAnswerDto request, CancellationToken ct = default);
+
+    /// <summary>Permet de réinitialiser le quota quotidien du joueur pour rejouer immédiatement lors des tests / démonstrations.</summary>
+    Task ResetDailyQuotaForDemoAsync(Guid playerId, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -93,6 +99,9 @@ public interface IGachaService
 
     // US-27 à US-31 : tirage ×1 ou ×10, débit de la monnaie, ajout à l'inventaire
     Task<GachaPullResultDto> PullAsync(Guid playerId, int count, CancellationToken ct = default);
+
+    // Permet d'accorder des crédits d'exploration scientifique à un joueur connecté
+    Task<int> GrantExplorationCreditsAsync(Guid playerId, int amount = 500, CancellationToken ct = default);
 }
 
 /// <summary>

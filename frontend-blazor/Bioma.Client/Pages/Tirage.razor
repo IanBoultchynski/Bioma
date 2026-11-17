@@ -1,53 +1,81 @@
 @page "/tirage"
+@implements IDisposable
 @using Bioma.Application.DTOs
 @using Bioma.Application.Interfaces
 @using Bioma.Domain.Enums
 @inject IGachaService Gacha
-
-@*
-    Épique 5 : Tirage / Gacha (US-27 à US-31) + animation Polaroïd (US-13, US-29)
-    - ×1  : l'appareil photo (vidéo Blender) imprime la carte, qui se développe
-    - ×10 : l'appareil imprime la MEILLEURE carte, puis les 10 cartes apparaissent une par une
-*@
+@inject IUserProfileService UserService
+@inject UserSessionState Session
 
 <div class="bioma-page-header">
     <div>
         <h1 class="bioma-title">Tirage · Échos du vivant</h1>
-        <p class="bioma-subtitle">Dépensez votre monnaie pour découvrir de nouvelles espèces. Plus une espèce est rare dans la nature, plus elle est rare ici.</p>
+        <p class="bioma-subtitle">
+            Dépensez vos crédits pour révéler des espèces. Plus un animal est rare dans la vraie nature, plus il est difficile à obtenir.
+        </p>
     </div>
 
-    <div class="bioma-stat-counter">
-        <span class="bioma-stat-number">@(_banner?.PlayerCurrency ?? 0)</span>
-        <div style="text-align: left; font-size: 0.74rem; color: var(--figma-text-soft); line-height: 1.35;">
-            <div>monnaie virtuelle</div>
-            <div style="color: var(--figma-text-muted);">aucun achat réel</div>
+    <div style="display: flex; align-items: center; gap: 0.85rem; flex-wrap: wrap;">
+        @if (_activeProfile is not null)
+        {
+            <div style="display: flex; align-items: center; gap: 0.55rem; background: rgba(15, 32, 22, 0.7); border: 1px solid var(--figma-border-strong); padding: 0.4rem 0.8rem; border-radius: 8px;">
+                <img src="@_activeProfile.AvatarUrl" alt="@_activeProfile.Username" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover;" />
+                <div style="font-size: 0.74rem; line-height: 1.25;">
+                    <div style="font-weight: 700; color: var(--figma-cream);">@_activeProfile.Username</div>
+                    <div style="color: var(--figma-text-muted);">@_activeProfile.Inventory.Count carte(s) · @_activeProfile.ActiveDeck.Count en Deck</div>
+                </div>
+            </div>
+        }
+
+        <div class="bioma-stat-counter">
+            <span class="bioma-stat-number">@(_banner?.PlayerCurrency ?? 0)</span>
+            <div style="text-align: left; font-size: 0.74rem; color: var(--figma-text-soft); line-height: 1.35;">
+                <div>crédits disponibles</div>
+                <button type="button"
+                        @onclick="GrantCreditsAsync"
+                        style="background: none; border: none; padding: 0; color: var(--figma-gold); font-size: 0.72rem; font-weight: 600; cursor: pointer; text-decoration: underline;">
+                    +500 crédits (Mission)
+                </button>
+            </div>
         </div>
     </div>
 </div>
 
 @if (_banner is null)
 {
-    <p style="color: var(--figma-text-muted);">Chargement…</p>
+    <p style="color: var(--figma-text-muted);">Chargement du système de tirage…</p>
 }
 else
 {
-    <div class="refuge-grid" style="grid-template-columns: 1fr 1.3fr; gap: 2rem; align-items: start;">
-        <!-- COLONNE GAUCHE : prix, probabilités, boutons -->
+    <div class="refuge-grid" style="grid-template-columns: 1.02fr 1.38fr; gap: 2rem; align-items: start;">
+        <!-- COLONNE GAUCHE : Probabilités corrélées à la nature & déclenchement -->
         <section class="gacha-panel">
-            <h2 class="figma-section-title" style="margin-bottom: 0.75rem;">Probabilités par carte</h2>
+            <div class="figma-section-header" style="margin-bottom: 0.85rem;">
+                <h2 class="figma-section-title">Niveaux de rareté &amp; Probabilités</h2>
+                <span style="font-size: 0.72rem; color: var(--figma-gold);">Indexé sur la nature</span>
+            </div>
 
             @foreach (var odd in _banner.Odds)
             {
                 <div class="gacha-odds-row">
-                    <span class="rarity-badge @PolaroidPrint.RarityCss(odd.Rarity)">@odd.Label</span>
-                    <span style="font-weight: 600;">@odd.Percent %</span>
+                    <div style="display: flex; flex-direction: column; gap: 3px;">
+                        <div>
+                            <span class="rarity-badge @PolaroidPrint.RarityCss(odd.Rarity)">
+                                @odd.Label
+                            </span>
+                        </div>
+                        <span style="font-size: 0.68rem; color: var(--figma-text-muted);">
+                            @GetNaturalThresholdDescription(odd.Rarity)
+                        </span>
+                    </div>
+                    <span style="font-weight: 700; font-size: 0.95rem; color: var(--figma-cream);">@odd.Percent %</span>
                 </div>
             }
 
-            <p style="font-size: 0.74rem; color: var(--figma-text-muted); margin: 0.85rem 0 1.1rem;">
-                Le tirage ×@_banner.MultiPullCount garantit au moins une carte <strong>Rare</strong>.
-                Catalogue actuel : @_banner.CatalogueSize espèce(s).
-            </p>
+            <div style="background: rgba(12, 26, 18, 0.55); border: 1px solid var(--figma-border); border-radius: 6px; padding: 0.7rem 0.85rem; margin: 0.9rem 0 1.1rem; font-size: 0.75rem; color: var(--figma-text-soft); line-height: 1.45;">
+                <div>Le multi-tirage <strong>×@_banner.MultiPullCount</strong> garantit au moins une carte <span class="rarity-badge rare" style="font-size: 0.58rem; padding: 1px 6px;">Rare</span> ou supérieure.</div>
+                <div style="margin-top: 0.25rem;">Catalogue actif : <strong>@_banner.CatalogueSize espèces réelles</strong>.</div>
+            </div>
 
             @if (!string.IsNullOrEmpty(_error))
             {
@@ -55,39 +83,106 @@ else
             }
 
             <div style="display: flex; gap: 0.7rem; flex-wrap: wrap;">
-                <button class="btn-sand" style="width: auto;"
+                <button class="btn-sand" style="flex: 1; min-width: 155px;"
                         disabled="@(_isBusy || _banner.PlayerCurrency < _banner.SinglePullCost)"
                         @onclick="() => PullAsync(1)">
-                    <span>Tirer ×1 · @_banner.SinglePullCost</span>
+                    <span>Tirer ×1</span>
+                    <span>@_banner.SinglePullCost crédits</span>
                 </button>
 
-                <button class="btn-outline" style="width: auto;"
+                <button class="btn-outline" style="flex: 1; min-width: 175px; border-color: var(--figma-gold); color: var(--figma-cream);"
                         disabled="@(_isBusy || _banner.PlayerCurrency < _banner.MultiPullCost)"
                         @onclick="() => PullAsync(_banner.MultiPullCount)">
-                    <span>Tirer ×@_banner.MultiPullCount · @_banner.MultiPullCost</span>
+                    <span>Tirer ×@_banner.MultiPullCount (Rare garantie)</span>
+                    <span>@_banner.MultiPullCost</span>
                 </button>
+            </div>
+
+            <div style="margin-top: 1.15rem; padding-top: 0.85rem; border-top: 1px solid var(--figma-border); display: flex; justify-content: space-between; align-items: center; font-size: 0.76rem;">
+                <a href="/profil" style="color: var(--figma-gold); font-weight: 600;">
+                    Consulter mon Deck &amp; Inventaire (@(_activeProfile?.Inventory.Count ?? 0) cartes)
+                </a>
+                <a href="/quiz" style="color: var(--figma-text-soft);">
+                    Gagner des crédits au Quiz
+                </a>
             </div>
         </section>
 
-        <!-- COLONNE DROITE : scène de révélation -->
-        <section class="gacha-panel gacha-stage">
+        <!-- COLONNE DROITE : Scène de révélation Polaroïd avec Aura de la plus haute rareté piochée -->
+        @{
+            string auraClass = _featured is not null
+                ? $"gacha-aura-{PolaroidPrint.RarityCss(_featured.Rarity)}"
+                : string.Empty;
+        }
+        <section class="gacha-panel gacha-stage @auraClass">
             @if (_featured is null)
             {
                 <div class="gacha-empty">
                     <div class="polaroid-reveal">
-                        <img class="polaroid-reveal-media" src="media/polaroid-tirage-debut.png" alt="" />
+                        <img class="polaroid-reveal-media" src="media/polaroid-tirage-debut.png" alt="Appareil Polaroïd Bioma" />
                     </div>
-                    <p>Lancez un tirage pour imprimer vos cartes.</p>
+                    <p>Lancez un tirage ×1 ou ×10 pour développer vos cartes.</p>
                 </div>
             }
             else
             {
-                <!-- 1. L'appareil imprime la meilleure carte -->
+                string featCss = PolaroidPrint.RarityCss(_featured.Rarity);
+
                 <PolaroidReveal @key="_pullNumber" @ref="_reveal"
                                 Card="_featured"
                                 OnRevealed="OnFeaturedRevealedAsync" />
 
-                <!-- 2. Tirage ×10 : toutes les cartes, révélées une par une -->
+                @if (!_isFeaturedRevealed)
+                {
+                    <!-- Pendant l'animation : uniquement l'aura de rareté, sans spoiler le nom de l'espèce -->
+                    <div class="aura-developing-indicator">
+                        Développement Polaroïd en cours · Aura détectée :
+                        <span class="rarity-badge @featCss" style="margin-left: 0.35rem;">@_featured.RarityLabel</span>
+                    </div>
+                }
+                else
+                {
+                    <!-- Une fois l'animation terminée : affichage du titre et des détails de la carte -->
+                    <div class="rarity-spotlight-banner @featCss">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.25rem;">
+                                <span class="rarity-badge @featCss">
+                                    @_featured.RarityLabel
+                                </span>
+                                @if (_featured.IsNew)
+                                {
+                                    <span style="background: #16A34A; color: #fff; font-size: 0.64rem; font-weight: 700; padding: 2px 6px; border-radius: 4px;">
+                                        NOUVELLE ESPÈCE
+                                    </span>
+                                }
+                                <span style="font-size: 0.74rem; color: var(--figma-text-soft);">
+                                    @_featured.Family
+                                </span>
+                            </div>
+                            <div style="font-family: var(--font-serif); font-size: 1.25rem; font-weight: 700; color: var(--figma-text);">
+                                @_featured.CommonName <span style="font-weight: 400; font-style: italic; font-size: 0.9rem; color: var(--figma-text-soft);">(@_featured.ScientificName)</span>
+                            </div>
+                            <div style="font-size: 0.74rem; color: var(--figma-text-soft); margin-top: 0.2rem;">
+                                <strong>@_featured.NaturalOccurrencesCount.ToString("N0")</strong> observations dans la nature · Probabilité : <strong>@_featured.DropRatePercent %</strong>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.45rem;">
+                            <div style="display: flex; gap: 0.35rem;">
+                                <span style="font-size: 0.7rem; padding: 2px 6px; background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.45); border-radius: 4px;">ATK @_featured.Attack</span>
+                                <span style="font-size: 0.7rem; padding: 2px 6px; background: rgba(59,130,246,0.2); border: 1px solid rgba(59,130,246,0.45); border-radius: 4px;">DEF @_featured.Defense</span>
+                                <span style="font-size: 0.7rem; padding: 2px 6px; background: rgba(16,185,129,0.2); border: 1px solid rgba(16,185,129,0.45); border-radius: 4px;">SPD @_featured.Speed</span>
+                            </div>
+                            <button type="button"
+                                    class="btn-sand"
+                                    style="width: auto; padding: 0.38rem 0.85rem; font-size: 0.74rem;"
+                                    @onclick="() => ToggleDrawnCardInDeckAsync(_featured.PlayerCardId)">
+                                <span>@(IsCardInActiveDeck(_featured.PlayerCardId) ? "Retirer du Deck actif" : "Équiper dans mon Deck")</span>
+                            </button>
+                        </div>
+                    </div>
+                }
+
                 @if (_showGrid)
                 {
                     <div class="gacha-grid">
@@ -96,7 +191,13 @@ else
                             var card = _drawn[i];
                             if (i < _revealedCount)
                             {
-                                <PolaroidPrint Card="card" Class="gacha-flip" />
+                                <div style="display: flex; flex-direction: column; align-items: center; gap: 0.35rem; cursor: pointer;"
+                                     @onclick="() => _featured = card">
+                                    <PolaroidPrint Card="card" Class="gacha-flip" />
+                                    <span class="rarity-badge @PolaroidPrint.RarityCss(card.Rarity)" style="font-size: 0.58rem; padding: 1px 6px;">
+                                        @card.RarityLabel
+                                    </span>
+                                </div>
                             }
                             else
                             {
@@ -115,54 +216,201 @@ else
             }
         </section>
     </div>
+
+    @if (_activeProfile is not null)
+    {
+        <section class="gacha-panel" style="margin-top: 2rem;">
+            <div class="figma-section-header" style="margin-bottom: 1rem;">
+                <div>
+                    <h2 class="figma-section-title">Mon Inventaire &amp; Deck synchronisé (@_activeProfile.Username)</h2>
+                    <span style="font-size: 0.76rem; color: var(--figma-text-muted);">
+                        Les cartes tirées sont enregistrées dans votre inventaire Supabase.
+                    </span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.85rem;">
+                    <span style="font-size: 0.8rem; font-weight: 600; color: var(--figma-gold);">
+                        Deck : @_activeProfile.ActiveDeck.Count · Inventaire : @_activeProfile.Inventory.Count
+                    </span>
+                    <a href="/profil" class="btn-outline" style="padding: 0.38rem 0.8rem; font-size: 0.76rem;">
+                        <span>Voir tout mon inventaire</span>
+                    </a>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(195px, 1fr)); gap: 1.05rem;">
+                @foreach (var card in _activeProfile.Inventory.Take(8))
+                {
+                    string rCss = PolaroidPrint.RarityCssFromString(card.Rarity);
+                    <div class="polaroid-card rarity-border-@rCss @(card.IsInActiveDeck ? "selected" : "")"
+                         style="display: flex; flex-direction: column; justify-content: space-between;">
+                        <div>
+                            <div class="polaroid-photo-wrap">
+                                <img class="polaroid-photo" src="@card.ImageUrl" alt="@card.CommonName" loading="lazy" />
+                                <span class="rarity-badge @rCss" style="position: absolute; top: 6px; right: 6px; font-size: 0.56rem; padding: 2px 7px;">
+                                    @card.RarityLabel
+                                </span>
+                            </div>
+
+                            <div class="polaroid-name" title="@card.CommonName">@card.CommonName</div>
+                            <div class="polaroid-scientific" title="@card.ScientificName">@card.ScientificName</div>
+
+                            <div style="font-size: 0.62rem; color: #3D5647; margin-bottom: 5px; font-weight: 600;">
+                                @card.NaturalOccurrencesCount.ToString("N0") obs. · ATK @card.CurrentAttack · DEF @card.CurrentDefense
+                            </div>
+                        </div>
+
+                        <button type="button"
+                                @onclick="() => ToggleDrawnCardInDeckAsync(card.Id)"
+                                style="width: 100%; padding: 0.42rem 0.5rem; border-radius: 4px; border: none; font-size: 0.72rem; font-weight: 700; cursor: pointer; background: @(card.IsInActiveDeck ? "#1E3B2B" : "#DEB861"); color: @(card.IsInActiveDeck ? "#F5F1E6" : "#15291E");">
+                            @(card.IsInActiveDeck ? "Dans le Deck (Retirer)" : "Équiper dans le Deck")
+                        </button>
+                    </div>
+                }
+            </div>
+        </section>
+    }
 }
 
 @code {
-    // En attendant la connexion (US-01) : joueur de démo créé par BiomaDbSeeder
     private static readonly Guid DemoPlayerId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
 
+    private UserProfileDto? _activeProfile;
+    private UserProfileDto? _pendingUpdatedProfile;
     private GachaBannerDto? _banner;
     private List<GachaDrawnCardDto> _drawn = new();
-    private GachaDrawnCardDto? _featured;   // carte imprimée par l'appareil
+    private GachaDrawnCardDto? _featured;
     private PolaroidReveal? _reveal;
-    private int _pullNumber;                // change à chaque tirage => la vidéo redémarre
+    private int _pullNumber;
     private int _revealedCount;
+    private bool _isFeaturedRevealed;
     private bool _showGrid;
     private bool _isBusy;
     private bool _skip;
     private string? _error;
 
+    private Guid ActivePlayerId => Session.CurrentProfile?.Id ?? _activeProfile?.Id ?? DemoPlayerId;
+
+    protected override void OnInitialized()
+    {
+        Session.OnChange += HandleSessionChanged;
+    }
+
+    private void HandleSessionChanged()
+    {
+        _activeProfile = Session.CurrentProfile;
+        if (_banner is not null && _activeProfile is not null)
+        {
+            _banner = _banner with { PlayerCurrency = _activeProfile.Stats.VirtualCurrency };
+        }
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Session.OnChange -= HandleSessionChanged;
+    }
+
     protected override async Task OnInitializedAsync()
     {
-        _banner = await Gacha.GetBannerAsync(DemoPlayerId);
+        if (Session.CurrentProfile is not null)
+        {
+            _activeProfile = Session.CurrentProfile;
+        }
+        else
+        {
+            var profile = await UserService.GetProfileWithInventoryAsync(DemoPlayerId);
+            if (profile is not null)
+            {
+                _activeProfile = profile;
+                Session.SetSession(profile, Session.AuthToken);
+            }
+        }
+        _banner = await Gacha.GetBannerAsync(ActivePlayerId);
+    }
+
+    private static string GetNaturalThresholdDescription(CardRarity rarity) => rarity switch
+    {
+        CardRarity.Commune    => "Espèces abondantes dans la nature (≥ 100 000 observations)",
+        CardRarity.PeuCommune => "Espèces localisées ou discrètes (20 000 à 99 999 observations)",
+        CardRarity.Rare       => "Grands prédateurs et espèces vulnérables (3 500 à 19 999 observations)",
+        CardRarity.Legendaire => "Espèces menacées d'extinction (< 3 500 observations dans le monde)",
+        _ => ""
+    };
+
+    private async Task GrantCreditsAsync()
+    {
+        if (_isBusy) return;
+        _isBusy = true;
+        try
+        {
+            var newBalance = await Gacha.GrantExplorationCreditsAsync(ActivePlayerId, 500);
+            if (_banner is not null)
+            {
+                _banner = _banner with { PlayerCurrency = newBalance };
+            }
+            var updatedProfile = await UserService.GetProfileWithInventoryAsync(ActivePlayerId);
+            if (updatedProfile is not null)
+            {
+                _activeProfile = updatedProfile;
+                Session.SetSession(updatedProfile, Session.AuthToken);
+            }
+        }
+        finally
+        {
+            _isBusy = false;
+        }
     }
 
     private async Task PullAsync(int count)
     {
-        if (_isBusy) return; // évite le double-clic
+        if (_isBusy) return;
         _isBusy = true;
         _error = null;
 
-        var result = await Gacha.PullAsync(DemoPlayerId, count);
-        if (!result.Success)
+        try
         {
-            _error = result.Message;
-            _isBusy = false;
-            return;
-        }
+            var result = await Gacha.PullAsync(ActivePlayerId, count);
+            if (!result.Success)
+            {
+                _error = result.Message;
+                _isBusy = false;
+                return;
+            }
 
-        _banner = _banner! with { PlayerCurrency = result.RemainingCurrency };
-        _drawn = result.Cards;
-        _featured = _drawn.OrderByDescending(c => c.Rarity).First(); // la plus rare est imprimée
-        _revealedCount = 0;
-        _showGrid = false;
-        _skip = false;
-        _pullNumber++;
-        // La suite se passe dans OnFeaturedRevealedAsync, à la fin de l'animation Polaroïd
+            _banner = _banner! with { PlayerCurrency = result.RemainingCurrency };
+            _drawn = result.Cards;
+            _featured = _drawn
+                .OrderByDescending(c => c.Rarity)
+                .ThenBy(c => c.NaturalOccurrencesCount)
+                .First();
+
+            // Anti-spoiler : on cache le nom et on attend la fin de l'animation Polaroïd avant de révéler la fiche et l'inventaire
+            _isFeaturedRevealed = false;
+            _revealedCount = 0;
+            _showGrid = false;
+            _skip = false;
+            _pullNumber++;
+
+            _pendingUpdatedProfile = await UserService.GetProfileWithInventoryAsync(ActivePlayerId);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Erreur lors du tirage : {ex.Message}";
+            _isBusy = false;
+        }
     }
 
     private async Task OnFeaturedRevealedAsync()
     {
+        _isFeaturedRevealed = true;
+        if (_pendingUpdatedProfile is not null)
+        {
+            _activeProfile = _pendingUpdatedProfile;
+            Session.SetSession(_pendingUpdatedProfile, Session.AuthToken);
+            _pendingUpdatedProfile = null;
+        }
+        StateHasChanged();
+
         if (_drawn.Count > 1)
         {
             _showGrid = true;
@@ -170,7 +418,7 @@ else
             {
                 _revealedCount = i + 1;
                 StateHasChanged();
-                await Task.Delay(_drawn[i].Rarity >= CardRarity.Rare ? 700 : 300);
+                await Task.Delay(_drawn[i].Rarity >= CardRarity.Rare ? 650 : 280);
             }
         }
 
@@ -182,10 +430,30 @@ else
     private async Task SkipAsync()
     {
         _skip = true;
+        _isFeaturedRevealed = true;
         _revealedCount = _drawn.Count;
+        if (_pendingUpdatedProfile is not null)
+        {
+            _activeProfile = _pendingUpdatedProfile;
+            Session.SetSession(_pendingUpdatedProfile, Session.AuthToken);
+            _pendingUpdatedProfile = null;
+        }
         if (_reveal is not null)
         {
-            await _reveal.SkipToEndAsync(); // ne fait rien si l'animation est déjà finie
+            await _reveal.SkipToEndAsync();
+        }
+    }
+
+    private bool IsCardInActiveDeck(Guid playerCardId) =>
+        _activeProfile?.ActiveDeck.Any(c => c.Id == playerCardId) == true;
+
+    private async Task ToggleDrawnCardInDeckAsync(Guid playerCardId)
+    {
+        var updated = await UserService.ToggleCardInActiveDeckAsync(ActivePlayerId, playerCardId);
+        if (updated is not null)
+        {
+            _activeProfile = updated;
+            Session.SetSession(updated, Session.AuthToken);
         }
     }
 }

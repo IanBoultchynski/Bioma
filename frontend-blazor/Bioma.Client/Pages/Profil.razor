@@ -8,508 +8,277 @@
 @inject IUserProfileService UserService
 @inject UserSessionState Session
 @inject ProtectedLocalStorage LocalStorage
-@inject NavigationManager Navigation
 
 <div class="bioma-page-header">
     <div>
-        <h1 class="bioma-title">Carnet d'Explorateur &amp; Inventaire</h1>
+        <h1 class="bioma-title">Mon Deck &amp; Mon Inventaire</h1>
         <p class="bioma-subtitle">
-            Identité numérique, sécurité cryptographique et synchronisation Cloud temps réel.
+            Consultez toutes vos cartes possédées, composez votre Deck actif et synchronisez votre profil sur Supabase.
         </p>
     </div>
 
-    <!-- AI CAPSULE PILL (AVEC ICÔNE VECTORIELLE AU LIEU DU CERCLE VERT) -->
-    <div class="ai-capsule-pill">
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
         @if (Session.CurrentProfile is not null)
         {
-            <svg class="ai-capsule-icon user-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
-                <circle cx="12" cy="7" r="4"/>
-            </svg>
-            <span class="ai-capsule-text">@Session.CurrentProfile.Username</span>
-            <span class="ai-capsule-sep">|</span>
-            <span class="ai-capsule-accent">Synchronisé @Session.CurrentProfile.LastCloudSyncAt.ToLocalTime().ToString("HH:mm:ss")</span>
+            <span class="bioma-currency-pill" style="border-color: rgba(104, 197, 135, 0.45); color: #68C587;">
+                Synchronisé Supabase (@Session.CurrentProfile.LastCloudSyncAt.ToLocalTime().ToString("HH:mm:ss"))
+            </span>
         }
-        else
-        {
-            <svg class="ai-capsule-icon cloud-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
-                <polyline points="10 13 12 15 16 11"/>
-            </svg>
-            <span class="ai-capsule-text">Serveur Cloud Bioma</span>
-            <span class="ai-capsule-sep">|</span>
-            <span class="ai-capsule-accent">Prêt</span>
-        }
+        <a href="/tirage" class="btn-sand" style="width: auto; padding: 0.55rem 1.15rem;">
+            <span>Tirer des cartes</span>
+        </a>
     </div>
 </div>
 
 @if (!string.IsNullOrWhiteSpace(_feedbackMessage))
 {
-    <div class="ai-panel" style="margin-bottom: 1.5rem; padding: 0.85rem 1.25rem; border-color: @(_feedbackSuccess ? "rgba(74, 222, 128, 0.45)" : "rgba(239, 68, 68, 0.55)"); display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
-        <div style="display: flex; align-items: center; gap: 0.75rem; font-size: 0.85rem; color: var(--figma-text);">
-            @if (_feedbackSuccess)
-            {
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="20 6 9 17 4 12"/>
-                </svg>
-            }
-            else
-            {
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="12" y1="8" x2="12" y2="12"/>
-                    <line x1="12" y1="16" x2="12.01" y2="16"/>
-                </svg>
-            }
-            <span>@_feedbackMessage</span>
-        </div>
-        <button type="button"
-                @onclick="() => _feedbackMessage = null"
-                style="background: none; border: none; color: var(--figma-text-muted); cursor: pointer; font-size: 0.85rem;">
-            Fermer
-        </button>
+    <div style="margin-bottom: 1.25rem; padding: 0.7rem 1rem; border-radius: 8px; background: @(_feedbackSuccess ? "rgba(46, 158, 91, 0.22)" : "rgba(220, 75, 75, 0.22)"); border: 1px solid @(_feedbackSuccess ? "rgba(72, 187, 120, 0.55)" : "rgba(239, 68, 68, 0.55)"); display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem;">
+        <span>@_feedbackMessage</span>
+        <button type="button" @onclick="() => _feedbackMessage = null" style="background: none; border: none; color: var(--figma-text-soft); cursor: pointer; font-size: 0.78rem;">Fermer</button>
     </div>
 }
 
 @if (Session.CurrentProfile is null)
 {
-    <!-- =====================================================================
-         MODE NON CONNECTÉ : US-02 (Inscription), US-01 (Connexion), US-04 (Restauration Cloud)
-         ===================================================================== -->
-    <div class="refuge-grid" style="grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start;">
-
-        <!-- US-02 : Créer un profil utilisateur unique -->
-        <section class="ai-panel ai-panel-glow">
-            <div class="figma-section-header">
-                <h2 class="figma-section-title">Créer un Profil Unique</h2>
-                <span class="figma-section-link">US-02</span>
+    <section class="bioma-panel" style="margin-bottom: 1.5rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+            <div>
+                <div style="font-weight: 700; font-size: 0.95rem; color: var(--figma-cream);">Accès rapide aux comptes explorateurs</div>
+                <div style="font-size: 0.78rem; color: var(--figma-text-soft);">Sélectionnez un compte pour consulter son Deck et son inventaire :</div>
             </div>
+            <div style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
+                <button type="button" class="btn-sand" style="width: auto;" @onclick='() => QuickLoginAsync("Ian")'>
+                    <span>Continuer en tant que Ian</span>
+                </button>
+                <button type="button" class="btn-outline" style="width: auto;" @onclick='() => QuickLoginAsync("Arfaoumo")'>
+                    <span>Continuer en tant que Arfaoumo</span>
+                </button>
+            </div>
+        </div>
+    </section>
 
-            <p style="font-size: 0.82rem; color: var(--figma-text-soft); margin-bottom: 1.25rem; line-height: 1.55;">
-                Créez votre identité d'explorateur dans Bioma. Votre profil démarre vierge (<strong style="color: var(--figma-cream);">0 carte, 0 victoire</strong>) avec un monogramme vectoriel généré à vos initiales et une réplication Cloud immédiate.
-            </p>
-
-            <div style="display: flex; flex-direction: column; gap: 0.95rem;">
+    <div class="refuge-grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start;">
+        <section class="bioma-panel">
+            <h2 class="figma-section-title" style="margin-bottom: 0.85rem;">Se connecter</h2>
+            <div style="display: flex; flex-direction: column; gap: 0.8rem;">
                 <div>
-                    <label style="display: block; font-size: 0.76rem; font-weight: 600; color: var(--figma-cream); margin-bottom: 0.35rem;">Pseudonyme d'explorateur</label>
-                    <input type="text"
-                           class="bioma-input"
-                           @bind="_regUsername"
-                           @onkeydown="@(async e => { if (e.Key == "Enter") await ExecuteRegisterAsync(); })"
-                           placeholder="Ex : CamilleNaturaliste" />
+                    <label style="display: block; font-size: 0.74rem; color: var(--figma-text-soft); margin-bottom: 0.25rem;">Pseudonyme ou E-mail</label>
+                    <input type="text" class="bioma-input" @bind="_loginIdentifier" placeholder="Ex : Ian ou ian@bioma.fr" />
                 </div>
-
                 <div>
-                    <label style="display: block; font-size: 0.76rem; font-weight: 600; color: var(--figma-cream); margin-bottom: 0.35rem;">Adresse e-mail</label>
-                    <input type="email"
-                           class="bioma-input"
-                           @bind="_regEmail"
-                           @onkeydown="@(async e => { if (e.Key == "Enter") await ExecuteRegisterAsync(); })"
-                           placeholder="Ex : camille@bioma.fr" />
+                    <label style="display: block; font-size: 0.74rem; color: var(--figma-text-soft); margin-bottom: 0.25rem;">Mot de passe</label>
+                    <input type="password" class="bioma-input" @bind="_loginPassword" placeholder="Mot de passe" />
                 </div>
-
-                <div>
-                    <label style="display: block; font-size: 0.76rem; font-weight: 600; color: var(--figma-cream); margin-bottom: 0.35rem;">Mot de passe sécurisé</label>
-                    <input type="password"
-                           class="bioma-input"
-                           @bind="_regPassword"
-                           @onkeydown="@(async e => { if (e.Key == "Enter" && !_isSubmitting) await ExecuteRegisterAsync(); })"
-                           placeholder="Min. 8 car. (Maj, min, chiffre/symbole)" />
-                    <span style="display: block; font-size: 0.7rem; color: var(--figma-text-muted); margin-top: 0.25rem;">
-                        Min. 8 caractères, avec au moins 1 majuscule, 1 minuscule et 1 chiffre ou symbole.
-                    </span>
-                </div>
-
-                <button class="btn-sand" style="margin-top: 0.35rem;" @onclick="ExecuteRegisterAsync" disabled="@_isSubmitting">
-                    <span>@(_isSubmitting ? "Création du compte..." : "Créer mon profil joueur")</span>
-                    <span>@(_isSubmitting ? "..." : "Valider")</span>
+                <button class="btn-sand" @onclick="ExecuteLoginAsync" disabled="@_isSubmitting">
+                    <span>@(_isSubmitting ? "Connexion..." : "Se connecter")</span>
                 </button>
             </div>
         </section>
 
-        <!-- US-01 : Connexion sécurisée + US-04 : Restauration Cloud -->
-        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-            <section class="ai-panel">
-                <div class="figma-section-header">
-                    <h2 class="figma-section-title">Connexion Sécurisée</h2>
-                    <span class="figma-section-link">US-01</span>
+        <section class="bioma-panel">
+            <h2 class="figma-section-title" style="margin-bottom: 0.85rem;">Créer un nouveau compte</h2>
+            <div style="display: flex; flex-direction: column; gap: 0.8rem;">
+                <div>
+                    <label style="display: block; font-size: 0.74rem; color: var(--figma-text-soft); margin-bottom: 0.25rem;">Pseudonyme</label>
+                    <input type="text" class="bioma-input" @bind="_regUsername" placeholder="Ex : CamilleNaturaliste" />
                 </div>
-
-                <p style="font-size: 0.82rem; color: var(--figma-text-soft); margin-bottom: 1.25rem; line-height: 1.55;">
-                    Accédez à votre compte protégé par hachage cryptographique <strong style="color: var(--figma-cream);">PBKDF2-SHA256 (100k itérations)</strong> directement sur Supabase pour retrouver votre inventaire et votre deck.
-                </p>
-
-                <div style="display: flex; flex-direction: column; gap: 0.95rem;">
-                    <div>
-                        <label style="display: block; font-size: 0.76rem; font-weight: 600; color: var(--figma-cream); margin-bottom: 0.35rem;">Pseudonyme ou E-mail</label>
-                        <input type="text"
-                               class="bioma-input"
-                               @bind="_loginIdentifier"
-                               @onkeydown="@(async e => { if (e.Key == "Enter" && !_isSubmitting) await ExecuteLoginAsync(); })"
-                               placeholder="Votre pseudonyme ou e-mail" />
-                    </div>
-
-                    <div>
-                        <label style="display: block; font-size: 0.76rem; font-weight: 600; color: var(--figma-cream); margin-bottom: 0.35rem;">Mot de passe</label>
-                        <input type="password"
-                               class="bioma-input"
-                               @bind="_loginPassword"
-                               @onkeydown="@(async e => { if (e.Key == "Enter" && !_isSubmitting) await ExecuteLoginAsync(); })"
-                               placeholder="Votre mot de passe" />
-                    </div>
-
-                    <button class="btn-sand" style="margin-top: 0.35rem;" @onclick="ExecuteLoginAsync" disabled="@_isSubmitting">
-                        <span>@(_isSubmitting ? "Authentification..." : "Se connecter")</span>
-                        <span>@(_isSubmitting ? "..." : "Authentifier")</span>
-                    </button>
+                <div>
+                    <label style="display: block; font-size: 0.74rem; color: var(--figma-text-soft); margin-bottom: 0.25rem;">E-mail</label>
+                    <input type="email" class="bioma-input" @bind="_regEmail" placeholder="Ex : camille@bioma.fr" />
                 </div>
-            </section>
-
-            <!-- US-04 : Restauration Cloud -->
-            <section class="bioma-panel-dark">
-                <div class="figma-section-header" style="margin-bottom: 0.85rem;">
-                    <h2 class="figma-section-title" style="font-size: 1.05rem;">Restauration Cloud Multi-Appareil</h2>
-                    <span class="figma-section-link">US-04</span>
+                <div>
+                    <label style="display: block; font-size: 0.74rem; color: var(--figma-text-soft); margin-bottom: 0.25rem;">Mot de passe (min. 8 car., Maj, min, chiffre)</label>
+                    <input type="password" class="bioma-input" @bind="_regPassword" placeholder="Ex : Bioma2026!" />
                 </div>
-
-                <p style="font-size: 0.78rem; color: var(--figma-text-soft); margin-bottom: 0.85rem;">
-                    Changement de téléphone ou de session ? Entrez votre <strong style="color: var(--figma-gold);">Code de Transfert</strong> pour restaurer instantanément votre compte :
-                </p>
-
-                <div style="display: flex; gap: 0.6rem;">
-                    <input type="text"
-                           class="bioma-input"
-                           @bind="_cloudRestoreInput"
-                           @onkeydown="@(async e => { if (e.Key == "Enter") await ExecuteCloudRestoreAsync(); })"
-                           placeholder="Code CLOUD-XXXXXXXX..." />
-                    <button class="btn-outline" style="white-space: nowrap;" @onclick="ExecuteCloudRestoreAsync">
-                        <span>Restaurer</span>
-                    </button>
-                </div>
-            </section>
-        </div>
+                <button class="btn-outline" style="width: 100%;" @onclick="ExecuteRegisterAsync" disabled="@_isSubmitting">
+                    <span>@(_isSubmitting ? "Création..." : "Créer mon profil sur Supabase")</span>
+                </button>
+            </div>
+        </section>
     </div>
 }
 else
 {
     var profile = Session.CurrentProfile;
 
-    <!-- =====================================================================
-         BANNIÈRE HÉRO DU PROFIL CONNECTÉ (EFFET AI GLASS)
-         ===================================================================== -->
-    <div class="profile-hero">
-        <div class="profile-hero-left">
-            <div class="profile-avatar-ring">
-                <img src="@profile.AvatarUrl" alt="@profile.Username" />
-            </div>
-
-            <div>
-                <div style="display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap;">
-                    <h2 style="font-family: var(--font-serif); font-size: 1.85rem; font-weight: 700; color: var(--figma-text); line-height: 1.15;">
-                        @profile.Username
-                    </h2>
-                    <span class="ai-capsule-pill" style="padding: 0.2rem 0.65rem; font-size: 0.72rem;">
-                        <svg class="ai-capsule-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 2l8 4v6c0 5.25-3.5 10-8 11-4.5-1-8-5.75-8-11V6l8-4z"/>
-                        </svg>
-                        <span class="ai-capsule-text">Niveau @profile.Stats.Level</span>
-                    </span>
-                </div>
-
-                <div style="font-size: 0.8rem; color: var(--figma-text-soft); margin-top: 0.35rem;">
-                    @profile.Email · Compte actif · Synchronisation Cloud temps réel
-                </div>
-
-                <div class="xp-bar-track" style="width: 260px; margin: 0.6rem 0 0;">
-                    <div class="xp-bar-fill" style="width: @(Math.Clamp((profile.Stats.ExperiencePoints % 100), 6, 100))%;"></div>
-                </div>
-            </div>
-        </div>
-
-        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-            <a href="/" class="btn-outline" style="text-decoration: none;">
-                <span>Explorer la biodiversité</span>
-            </a>
-            <button type="button" class="btn-outline" @onclick="LogoutAsync" style="border-color: rgba(239, 68, 68, 0.4); color: #FCA5A5;">
-                <span>Déconnexion</span>
-            </button>
-        </div>
-    </div>
-
-    <!-- =====================================================================
-         US-06 : STATISTIQUES GLOBALES DU JOUEUR
-         ===================================================================== -->
-    <section style="margin-bottom: 2rem;">
-        <div class="figma-section-header" style="margin-bottom: 0.95rem;">
-            <h2 class="figma-section-title">Statistiques Globales de Progression</h2>
-            <span class="figma-section-link">US-06</span>
-        </div>
-
-        <div class="stats-kpi-grid">
-            <div class="stat-kpi-card">
-                <div class="stat-kpi-value">@profile.Stats.TotalCardsOwned</div>
-                <div class="stat-kpi-label">Cartes possédées</div>
-                <div class="stat-kpi-sub">@profile.Stats.UniqueSpeciesCount espèce(s) unique(s)</div>
-            </div>
-
-            <div class="stat-kpi-card">
-                <div class="stat-kpi-value" style="color: var(--figma-green-accent);">@profile.Stats.TotalVictories</div>
-                <div class="stat-kpi-label">Victoires</div>
-                <div class="stat-kpi-sub">@profile.Stats.TotalDefeats défaite(s) · @profile.Stats.WinRatePercent% de réussite</div>
-            </div>
-
-            <div class="stat-kpi-card">
-                <div class="stat-kpi-value" style="color: var(--figma-cream);">@profile.Stats.ActiveDeckCount</div>
-                <div class="stat-kpi-label">Cartes dans le Deck</div>
-                <div class="stat-kpi-sub">@profile.Stats.AdultCardsCount carte(s) adulte(s)</div>
-            </div>
-
-            <div class="stat-kpi-card">
-                <div class="stat-kpi-value">@profile.Stats.EloRating</div>
-                <div class="stat-kpi-label">Score Elo</div>
-                <div class="stat-kpi-sub">@profile.Stats.ExperiencePoints XP · @profile.Stats.VirtualCurrency Crédits</div>
-            </div>
-        </div>
-    </section>
-
-    <!-- =====================================================================
-         STUDIO DE CONFIGURATION & MODIFICATION DU PROFIL (US-05 & US-04)
-         Présentation claire et ergonomique des éléments éditables
-         ===================================================================== -->
-    <section class="ai-panel ai-panel-glow" style="margin-bottom: 2rem;">
-        <div class="figma-section-header" style="margin-bottom: 1rem;">
-            <div>
-                <h2 class="figma-section-title">Paramètres &amp; Personnalisation du Profil</h2>
-                <span style="font-size: 0.76rem; color: var(--figma-text-muted);">Gestion de votre identité visuelle et sauvegarde Cloud</span>
-            </div>
-            <div class="settings-nav-tabs" style="border: none; padding: 0; margin: 0;">
-                <button type="button"
-                        class="settings-tab-btn @(_activeSettingsTab == SettingsTab.Avatar ? "active" : "")"
-                        @onclick="() => _activeSettingsTab = SettingsTab.Avatar">
-                    Identité &amp; Avatar (US-05)
-                </button>
-                <button type="button"
-                        class="settings-tab-btn @(_activeSettingsTab == SettingsTab.Cloud ? "active" : "")"
-                        @onclick="() => _activeSettingsTab = SettingsTab.Cloud">
-                    Sauvegarde Cloud (US-04)
-                </button>
-            </div>
-        </div>
-
-        @if (_activeSettingsTab == SettingsTab.Avatar)
-        {
-            <!-- SOUS-PANNEAU : PERSONNALISATION DE L'AVATAR (US-05) -->
-            <div style="display: grid; grid-template-columns: 220px 1fr; gap: 2rem; align-items: start;">
-                <!-- Aperçu en direct -->
-                <div style="text-align: center; background: rgba(10, 24, 17, 0.7); border: 1px solid var(--figma-border-strong); border-radius: 10px; padding: 1.5rem 1rem;">
-                    <div class="profile-avatar-ring" style="width: 104px; height: 104px; margin: 0 auto 1rem;">
-                        <img src="@profile.AvatarUrl" alt="Avatar actif" />
+    <section class="bioma-panel" style="margin-bottom: 1.5rem; padding: 1.15rem 1.35rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.25rem;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <img src="@profile.AvatarUrl"
+                     alt="@profile.Username"
+                     style="width: 56px; height: 56px; border-radius: 50%; border: 2px solid var(--figma-gold); object-fit: cover;" />
+                <div>
+                    <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+                        <h2 style="font-family: var(--font-serif); font-size: 1.55rem; font-weight: 700; color: var(--figma-text);">
+                            @profile.Username
+                        </h2>
+                        <span class="bioma-currency-pill" style="font-size: 0.72rem; padding: 0.15rem 0.6rem;">
+                            Niveau @profile.Stats.Level · @profile.Stats.EloRating Elo
+                        </span>
                     </div>
-                    <div style="font-weight: 700; font-size: 0.95rem; color: var(--figma-cream); margin-bottom: 0.2rem;">@profile.Username</div>
-                    <div style="font-size: 0.72rem; color: var(--figma-text-muted);">Avatar en cours d'utilisation</div>
-                </div>
-
-                <!-- Options de modification -->
-                <div style="display: flex; flex-direction: column; gap: 1.25rem;">
-                    <!-- Option A : Emblèmes vectoriels d'Herbier -->
-                    <div>
-                        <label style="display: block; font-size: 0.78rem; font-weight: 600; color: var(--figma-cream); margin-bottom: 0.5rem;">
-                            1. Emblèmes Vectoriels Bioma (Sans photos génériques)
-                        </label>
-                        <div class="avatar-emblems-row" style="margin: 0 0 0.5rem 0;">
-                            @foreach (var emblem in GetBotanicalEmblems(profile.Username))
-                            {
-                                <button type="button"
-                                        class="avatar-emblem-btn @(profile.AvatarUrl == emblem.DataUri ? "active" : "")"
-                                        title="@emblem.Label"
-                                        @onclick="() => SelectEmblemAvatarAsync(emblem.DataUri)">
-                                    <img src="@emblem.DataUri" alt="@emblem.Label" />
-                                </button>
-                            }
-                        </div>
-                        <span style="font-size: 0.72rem; color: var(--figma-text-muted);">Cliquez sur un insigne pour l'assigner instantanément à votre profil.</span>
-                    </div>
-
-                    <!-- Option B : Importer un fichier depuis son appareil -->
-                    <div class="upload-dropzone" style="margin: 0;">
-                        <label style="display: block; font-size: 0.78rem; font-weight: 600; color: var(--figma-cream); margin-bottom: 0.4rem;">
-                            2. Importer une image personnelle depuis votre appareil
-                        </label>
-                        <InputFile OnChange="OnAvatarFileUploadedAsync" accept="image/*" style="font-size: 0.78rem; color: var(--figma-text-soft); width: 100%; cursor: pointer;" />
-                        <div style="font-size: 0.68rem; color: var(--figma-text-muted); margin-top: 0.35rem;">Formats acceptés : PNG, JPG, WebP (taille maximale : 2 Mo).</div>
-                    </div>
-
-                    <!-- Option C : URL d'image personnalisée -->
-                    <div>
-                        <label style="display: block; font-size: 0.78rem; font-weight: 600; color: var(--figma-cream); margin-bottom: 0.4rem;">
-                            3. Ou renseigner l'adresse web d'une image
-                        </label>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <input type="text"
-                                   class="bioma-input"
-                                   @bind="_customAvatarUrl"
-                                   placeholder="https://domaine.com/mon-avatar.png" />
-                            <button class="btn-outline" style="white-space: nowrap;" @onclick="SaveCustomAvatarAsync">
-                                <span>Appliquer l'URL</span>
-                            </button>
-                        </div>
+                    <div style="font-size: 0.76rem; color: var(--figma-text-soft); margin-top: 0.15rem;">
+                        @profile.Email · <strong>@profile.Stats.TotalCardsOwned</strong> carte(s) (@profile.Stats.UniqueSpeciesCount espèces uniques) · <strong>@profile.Stats.VirtualCurrency</strong> crédits
                     </div>
                 </div>
             </div>
-        }
-        else
-        {
-            <!-- SOUS-PANNEAU : SYNCHRONISATION ET GESTION DU CLOUD (US-04) -->
-            <div style="display: grid; grid-template-columns: 1.15fr 1fr; gap: 2rem; align-items: start;">
-                <div style="display: flex; flex-direction: column; gap: 1rem;">
-                    <p style="font-size: 0.82rem; color: var(--figma-text-soft); line-height: 1.55;">
-                        Votre profil et vos cartes sont répliqués de manière asynchrone sur le stockage cloud local et SQLite. Un jeton cryptographique permet de restaurer votre progression sur n'importe quel autre terminal sans perte de données.
-                    </p>
 
-                    <div class="cloud-token-box" style="margin: 0;">
-                        <div>
-                            <div style="font-size: 0.68rem; color: var(--figma-text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Code de transfert Cloud</div>
-                            <div class="cloud-token-code">@(_lastCloudSync?.CloudBackupToken ?? GetPredictedCloudToken(profile))</div>
-                        </div>
+            <div style="display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 0.35rem;">
+                    @foreach (var emblem in GetBotanicalEmblems(profile.Username))
+                    {
                         <button type="button"
-                                class="btn-outline"
-                                style="padding: 0.35rem 0.75rem; font-size: 0.72rem;"
-                                @onclick="TriggerManualSyncAndReportAsync">
-                            <span>Copier / Synchroniser</span>
+                                title="Emblème : @emblem.Label"
+                                @onclick="() => SelectEmblemAvatarAsync(emblem.DataUri)"
+                                style="width: 30px; height: 30px; border-radius: 50%; padding: 0; border: @(profile.AvatarUrl == emblem.DataUri ? "2px solid var(--figma-gold)" : "1px solid var(--figma-border-strong)"); background: none; cursor: pointer; overflow: hidden;">
+                            <img src="@emblem.DataUri" alt="@emblem.Label" style="width: 100%; height: 100%; display: block;" />
                         </button>
-                    </div>
-
-                    <div style="font-size: 0.75rem; color: var(--figma-text-muted); background: rgba(10, 24, 17, 0.6); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--figma-border);">
-                        <div style="display: flex; align-items: center; gap: 0.45rem;">
-                            <span>Statut de réplication :</span>
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#68C587" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                <polyline points="20 6 9 17 4 12"/>
-                            </svg>
-                            <strong style="color: #68C587;">Actif &amp; Opérationnel</strong>
-                        </div>
-                        <div style="margin-top: 0.25rem;">Dernière persistance Cloud : <strong style="color: var(--figma-text);">@profile.LastCloudSyncAt.ToLocalTime().ToString("dd/MM/yyyy à HH:mm:ss")</strong></div>
-                    </div>
-
-                    <button class="btn-sand" @onclick="ExecuteManualCloudSyncAsync">
-                        <span>Forcer une synchronisation Cloud maintenant</span>
-                        <span>Mettre à jour</span>
-                    </button>
+                    }
                 </div>
 
-                <!-- Visualiseur d'empreinte JSON Cloud -->
-                <div style="background: rgba(8, 18, 12, 0.95); border: 1px solid var(--figma-border); border-radius: 8px; padding: 1rem;">
-                    <div style="font-size: 0.74rem; font-weight: 600; color: var(--figma-gold); margin-bottom: 0.5rem; display: flex; justify-content: space-between;">
-                        <span>Empreinte JSON Cloud</span>
-                        <span style="color: var(--figma-text-muted);">@(_lastCloudSync?.SavedCardsCount ?? profile.Inventory.Count) carte(s)</span>
-                    </div>
-                    <pre style="padding: 0.65rem; background: #050C08; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px; overflow-x: auto; max-height: 220px; font-size: 0.68rem; color: #8FA898; font-family: monospace;">@(_lastCloudSync?.CloudSnapshotJson ?? "// Empreinte prête à être consultée")</pre>
-                </div>
-            </div>
-        }
-    </section>
-
-    <!-- =====================================================================
-         US-03 : MON DECK & MON INVENTAIRE
-         ===================================================================== -->
-    <section class="ai-panel">
-        <div class="figma-section-header" style="margin-bottom: 1.25rem;">
-            <div>
-                <h2 class="figma-section-title">Mon Deck &amp; Mon Inventaire</h2>
-                <span style="font-size: 0.76rem; color: var(--figma-text-muted);">Gérez les cartes actives que vous engagez dans vos futures expéditions et combats</span>
-            </div>
-            <div style="font-size: 0.8rem; font-weight: 600; color: var(--figma-gold);">
-                Deck : @profile.ActiveDeck.Count carte(s) équipée(s)
+                <button type="button" class="btn-outline" style="padding: 0.42rem 0.85rem; font-size: 0.76rem;" @onclick="LogoutAsync">
+                    <span>Changer de compte</span>
+                </button>
             </div>
         </div>
+    </section>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.85rem; margin-bottom: 1.35rem;">
+    <section class="bioma-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
             <div class="pill-tabs" style="margin-bottom: 0;">
                 <button type="button"
-                        class="pill-tab @(!_showOnlyDeck ? "active" : "")"
-                        @onclick="() => _showOnlyDeck = false">
-                    Tout l'inventaire (@profile.Inventory.Count)
+                        class="pill-tab @(_inventoryViewMode == "all" ? "active" : "")"
+                        @onclick='() => _inventoryViewMode = "all"'>
+                    Tout mon inventaire (@profile.Inventory.Count)
                 </button>
                 <button type="button"
-                        class="pill-tab @(_showOnlyDeck ? "active" : "")"
-                        @onclick="() => _showOnlyDeck = true">
-                    Deck Actif (@profile.ActiveDeck.Count)
+                        class="pill-tab @(_inventoryViewMode == "deck" ? "active" : "")"
+                        @onclick='() => _inventoryViewMode = "deck"'>
+                    Mon Deck Actif (@profile.ActiveDeck.Count)
+                </button>
+                <button type="button"
+                        class="pill-tab @(_inventoryViewMode == "gacha" ? "active" : "")"
+                        @onclick='() => _inventoryViewMode = "gacha"'>
+                    Obtenues au Tirage (@profile.Inventory.Count(c => c.ObtainedVia == "Gacha"))
                 </button>
             </div>
 
-            <input type="text"
-                   class="bioma-input"
-                   style="max-width: 260px;"
-                   @bind="_inventorySearch"
-                   @bind:event="oninput"
-                   placeholder="Rechercher une carte..." />
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <select class="bioma-select" style="width: auto; padding: 0.4rem 0.65rem; font-size: 0.75rem;" @bind="_inventorySort">
+                    <option value="rarity_desc">Trier : Rareté (Légendaire → Commune)</option>
+                    <option value="recent">Trier : Plus récentes</option>
+                    <option value="atk_desc">Trier : Puissance ATK</option>
+                </select>
+
+                <input type="text"
+                       class="bioma-input"
+                       style="max-width: 210px; padding: 0.4rem 0.7rem;"
+                       @bind="_inventorySearch"
+                       @bind:event="oninput"
+                       placeholder="Rechercher une espèce..." />
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1.25rem;">
+            @foreach (var rTab in new[]
+            {
+                ("ALL", "Toutes les raretés", ""),
+                ("Legendaire", "Légendaire", "legendaire"),
+                ("Rare", "Rare", "rare"),
+                ("PeuCommune", "Peu commune", "peu-commune"),
+                ("Commune", "Commune", "commune")
+            })
+            {
+                <button type="button"
+                        class="pill-tab @(_inventoryRarityFilter == rTab.Item1 ? "active" : "")"
+                        style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.73rem; padding: 0.25rem 0.7rem;"
+                        @onclick="() => _inventoryRarityFilter = rTab.Item1">
+                    @if (!string.IsNullOrEmpty(rTab.Item3))
+                    {
+                        <span class="polaroid-dot @rTab.Item3" style="margin: 0;"></span>
+                    }
+                    <span>@rTab.Item2</span>
+                </button>
+            }
         </div>
 
         @{
-            var sourceList = _showOnlyDeck ? profile.ActiveDeck : profile.Inventory;
-            var displayedCards = string.IsNullOrWhiteSpace(_inventorySearch)
-                ? sourceList
-                : sourceList.Where(c =>
+            IEnumerable<PlayerCardDto> sourceList = _inventoryViewMode switch
+            {
+                "deck"  => profile.ActiveDeck,
+                "gacha" => profile.Inventory.Where(c => c.ObtainedVia.Equals("Gacha", StringComparison.OrdinalIgnoreCase)),
+                _       => profile.Inventory
+            };
+
+            if (_inventoryRarityFilter != "ALL")
+            {
+                sourceList = sourceList.Where(c => c.Rarity.Equals(_inventoryRarityFilter, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrWhiteSpace(_inventorySearch))
+            {
+                sourceList = sourceList.Where(c =>
                     c.CommonName.Contains(_inventorySearch, StringComparison.OrdinalIgnoreCase) ||
                     c.ScientificName.Contains(_inventorySearch, StringComparison.OrdinalIgnoreCase) ||
-                    c.Family.Contains(_inventorySearch, StringComparison.OrdinalIgnoreCase)).ToList();
+                    c.Family.Contains(_inventorySearch, StringComparison.OrdinalIgnoreCase));
+            }
+
+            static int RarityRank(string r) => r.ToLowerInvariant() switch
+            {
+                "legendaire" => 4,
+                "rare"       => 3,
+                "peucommune" => 2,
+                _            => 1
+            };
+
+            var displayedCards = (_inventorySort switch
+            {
+                "recent"   => sourceList.OrderByDescending(c => c.AcquiredAt),
+                "atk_desc" => sourceList.OrderByDescending(c => c.CurrentAttack),
+                _          => sourceList.OrderByDescending(c => RarityRank(c.Rarity)).ThenBy(c => c.NaturalOccurrencesCount)
+            }).ToList();
         }
 
         @if (displayedCards.Count == 0)
         {
-            <div class="bioma-panel-dark" style="text-align: center; padding: 3rem 1.5rem;">
-                @if (_showOnlyDeck)
-                {
-                    <div style="font-family: var(--font-serif); font-size: 1.15rem; color: var(--figma-cream); margin-bottom: 0.35rem;">
-                        Aucune carte active dans le Deck
-                    </div>
-                    <p style="font-size: 0.8rem; color: var(--figma-text-muted); margin-bottom: 1rem;">
-                        Sélectionnez des cartes dans votre inventaire pour composer votre équipe tactique.
-                    </p>
-                    <button type="button" class="btn-outline" @onclick="() => _showOnlyDeck = false">
-                        <span>Parcourir l'inventaire (@profile.Inventory.Count)</span>
-                    </button>
-                }
-                else
-                {
-                    <div style="font-family: var(--font-serif); font-size: 1.15rem; color: var(--figma-cream); margin-bottom: 0.35rem;">
-                        Votre inventaire est vide (0 carte)
-                    </div>
-                    <p style="font-size: 0.8rem; color: var(--figma-text-muted); margin-bottom: 1.1rem;">
-                        Rendez-vous dans l'Explorateur GBIF &amp; iNaturalist pour interroger des données scientifiques et enregistrer vos premières cartes réelles.
-                    </p>
-                    <a href="/" class="btn-sand" style="display: inline-flex; width: auto; text-decoration: none;">
-                        <span>Ouvrir l'Explorateur GBIF &amp; iNaturalist</span>
-                    </a>
-                }
+            <div class="bioma-panel-dark" style="text-align: center; padding: 2.5rem 1.5rem;">
+                <div style="font-family: var(--font-serif); font-size: 1.15rem; color: var(--figma-cream); margin-bottom: 0.4rem;">
+                    Aucune carte dans cette sélection
+                </div>
+                <p style="font-size: 0.8rem; color: var(--figma-text-muted); margin-bottom: 1rem;">
+                    Lancez un tirage Polaroïd ou explorez le catalogue API pour obtenir de nouvelles espèces.
+                </p>
+                <a href="/tirage" class="btn-sand" style="display: inline-flex; width: auto;">
+                    <span>Ouvrir le Tirage Gacha</span>
+                </a>
             </div>
         }
         else
         {
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 1.35rem;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(205px, 1fr)); gap: 1.15rem;">
                 @foreach (var card in displayedCards)
                 {
-                    <div class="polaroid-card @(card.IsInActiveDeck ? "selected" : "")" style="cursor: default; display: flex; flex-direction: column; justify-content: space-between;">
+                    string rCss = PolaroidPrint.RarityCssFromString(card.Rarity);
+                    <div class="polaroid-card rarity-border-@rCss @(card.IsInActiveDeck ? "selected" : "")"
+                         style="cursor: default; display: flex; flex-direction: column; justify-content: space-between;">
                         <div>
                             <div class="polaroid-photo-wrap">
                                 <img class="polaroid-photo" src="@card.ImageUrl" alt="@card.CommonName" loading="lazy" />
-                                <span class="polaroid-badge-top">Niv. @card.Level · @card.Stage</span>
+                                <span class="rarity-badge @rCss" style="position: absolute; top: 6px; right: 6px; font-size: 0.56rem; padding: 2px 7px;">
+                                    @card.RarityLabel
+                                </span>
                             </div>
 
                             <div class="polaroid-name" title="@card.CommonName">@card.CommonName</div>
                             <div class="polaroid-scientific" title="@card.ScientificName">@card.ScientificName</div>
 
-                            <div style="display: flex; gap: 0.35rem; margin-bottom: 0.65rem; flex-wrap: wrap;">
-                                <span class="stat-pill-tag atk">ATK @card.CurrentAttack</span>
-                                <span class="stat-pill-tag def">DEF @card.CurrentDefense</span>
-                                <span class="stat-pill-tag spd">SPD @card.CurrentSpeed</span>
+                            <div style="font-size: 0.62rem; color: #3D5647; margin-bottom: 0.4rem; font-weight: 600;">
+                                @card.NaturalOccurrencesCount.ToString("N0") obs. · ATK @card.CurrentAttack · DEF @card.CurrentDefense
                             </div>
 
-                            <div class="polaroid-footer" style="margin-bottom: 0.55rem;">
+                            <div class="polaroid-footer" style="margin-bottom: 0.5rem;">
                                 <span style="display: inline-flex; align-items: center; gap: 4px;">
-                                    <svg class="polaroid-source-icon @(card.ObtainedVia.Equals("GBIF", StringComparison.OrdinalIgnoreCase) ? "rare" : "peu-commune")" width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-                                        <polygon points="12,2 22,12 12,22 2,12" />
-                                    </svg>
-                                    @card.ObtainedVia
+                                    <span class="polaroid-dot @rCss" style="margin: 0;"></span>
+                                    <span>@card.ObtainedVia</span>
                                 </span>
                                 <span>@card.Family</span>
                             </div>
@@ -517,7 +286,7 @@ else
 
                         <button type="button"
                                 @onclick="() => ToggleDeckStatusAsync(card.Id)"
-                                style="width: 100%; padding: 0.48rem 0.6rem; border-radius: 5px; border: none; font-size: 0.74rem; font-weight: 700; cursor: pointer; transition: all 0.15s ease; background: @(card.IsInActiveDeck ? "#1E3B2B" : "#DEB861"); color: @(card.IsInActiveDeck ? "#F5F1E6" : "#15291E");">
+                                style="width: 100%; padding: 0.45rem 0.6rem; border-radius: 5px; border: none; font-size: 0.73rem; font-weight: 700; cursor: pointer; background: @(card.IsInActiveDeck ? "#1E3B2B" : "#DEB861"); color: @(card.IsInActiveDeck ? "#F5F1E6" : "#15291E");">
                             @(card.IsInActiveDeck ? "Dans le Deck (Retirer)" : "Équiper dans le Deck")
                         </button>
                     </div>
@@ -528,27 +297,18 @@ else
 }
 
 @code {
-    private enum SettingsTab
-    {
-        Avatar,
-        Cloud
-    }
-
     private record BotanicalEmblem(string Label, string DataUri);
-
-    private SettingsTab _activeSettingsTab = SettingsTab.Avatar;
-    private CloudSyncResultDto? _lastCloudSync;
 
     private string _loginIdentifier = string.Empty;
     private string _loginPassword = string.Empty;
     private string _regUsername = string.Empty;
     private string _regEmail = string.Empty;
     private string _regPassword = string.Empty;
-    private string _customAvatarUrl = string.Empty;
-    private string _cloudRestoreInput = string.Empty;
     private string _inventorySearch = string.Empty;
 
-    private bool _showOnlyDeck;
+    private string _inventoryViewMode = "all";
+    private string _inventoryRarityFilter = "ALL";
+    private string _inventorySort = "rarity_desc";
     private bool _isSubmitting;
     private string? _feedbackMessage;
     private bool _feedbackSuccess = true;
@@ -570,120 +330,59 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        if (Session.CurrentProfile is not null)
+        if (Session.CurrentProfile is null)
         {
-            try
+            var defaultProfile = await UserService.GetProfileWithInventoryAsync(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
+            if (defaultProfile is not null)
             {
-                var refreshed = await UserService.GetProfileWithInventoryAsync(Session.CurrentProfile.Id);
-                if (refreshed is not null)
-                {
-                    Session.SetSession(refreshed);
-                    _lastCloudSync = await UserService.SyncProgressionToCloudAsync(refreshed.Id);
-                }
-            }
-            catch
-            {
-                // Ignore
+                Session.SetSession(defaultProfile);
             }
         }
     }
 
     private static BotanicalEmblem[] GetBotanicalEmblems(string username) =>
     [
-        new("Monogramme Initiales", UserProfileService.BuildDefaultAvatarSvg(username)),
+        new("Initiales", UserProfileService.BuildDefaultAvatarSvg(username)),
         new("Sceau Sylvestre", BuildVectorIconSvg(
-            "<path d='M80 30 C50 45 40 85 80 130 C120 85 110 45 80 30 Z' fill='%2334D399' opacity='0.85'/><path d='M80 40 L80 120 M80 70 L60 55 M80 90 L100 75' stroke='%230B1B12' stroke-width='3' stroke-linecap='round'/>",
+            "<path d='M80 30 C50 45 40 85 80 130 C120 85 110 45 80 30 Z' fill='%2334D399' opacity='0.85'/><path d='M80 40 L80 120' stroke='%230B1B12' stroke-width='3'/>",
             "%2312291C", "%23DEB861")),
-        new("Boussole Tactique", BuildVectorIconSvg(
-            "<polygon points='80,32 92,72 80,64 68,72' fill='%23DEB861'/><polygon points='80,128 92,88 80,96 68,88' fill='%2358B77E'/><circle cx='80' cy='80' r='5' fill='%23F5F1E6'/><circle cx='80' cy='80' r='48' fill='none' stroke='%23DEB861' stroke-width='1.5' stroke-dasharray='4,4'/>",
+        new("Boussole", BuildVectorIconSvg(
+            "<polygon points='80,32 92,72 80,64 68,72' fill='%23DEB861'/><polygon points='80,128 92,88 80,96 68,88' fill='%2358B77E'/>",
             "%23102117", "%23E5C77A")),
-        new("Empreinte Naturaliste", BuildVectorIconSvg(
-            "<ellipse cx='60' cy='52' rx='8' ry='12' fill='%2358B77E'/><ellipse cx='78' cy='44' rx='8' ry='12' fill='%2358B77E'/><ellipse cx='96' cy='48' rx='8' ry='12' fill='%2358B77E'/><ellipse cx='108' cy='62' rx='7' ry='10' fill='%2358B77E'/><path d='M64 88 C64 74 96 74 96 88 C96 104 64 104 64 88 Z' fill='%23DEB861'/>",
-            "%23162C20", "%2368C587")),
         new("Étoile Polaire", BuildVectorIconSvg(
-            "<polygon points='80,24 88,68 136,80 88,92 80,136 72,92 24,80 72,68' fill='%23F4EBD4'/><polygon points='80,48 84,74 112,80 84,86 80,112 76,86 48,80 76,74' fill='%23DEB861'/>",
+            "<polygon points='80,24 88,68 136,80 88,92 80,136 72,92 24,80 72,68' fill='%23F4EBD4'/>",
             "%2312261B", "%23DEB861"))
     ];
 
-    private static string BuildVectorIconSvg(string innerSvgContent, string bgColorHex, string ringColorHex)
+    private static string BuildVectorIconSvg(string innerSvgContent, string bgColorHex, string ringColorHex) =>
+        $"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'><circle cx='80' cy='80' r='77' fill='{bgColorHex}' stroke='{ringColorHex}' stroke-width='3'/>{innerSvgContent}</svg>";
+
+    private async Task QuickLoginAsync(string username)
     {
-        return $"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'><defs><radialGradient id='g' cx='35%' cy='30%' r='75%'><stop offset='0%' stop-color='{bgColorHex}'/><stop offset='100%' stop-color='%2308140D'/></radialGradient></defs><circle cx='80' cy='80' r='77' fill='url(%23g)' stroke='{ringColorHex}' stroke-width='2.5'/><circle cx='80' cy='80' r='68' fill='none' stroke='%23ffffff' stroke-width='1' stroke-dasharray='4,4' opacity='0.25'/>{innerSvgContent}</svg>";
-    }
-
-    private static string GetPredictedCloudToken(UserProfileDto profile)
-    {
-        return $"CLOUD-{profile.Id.ToString("N")[..8].ToUpperInvariant()}";
-    }
-
-    private async Task ExecuteRegisterAsync()
-    {
-        if (string.IsNullOrWhiteSpace(_regUsername) || string.IsNullOrWhiteSpace(_regPassword))
+        var res = await UserService.RestoreProgressionFromCloudAsync(username);
+        if (res.Success && res.Profile is not null)
         {
-            _feedbackSuccess = false;
-            _feedbackMessage = "Veuillez renseigner un pseudonyme et un mot de passe sécurisé (min. 8 caractères).";
-            return;
-        }
-
-        _isSubmitting = true;
-        _feedbackMessage = null;
-        try
-        {
-            var res = await UserService.RegisterAsync(new RegisterUserRequestDto(_regUsername.Trim(), _regEmail?.Trim() ?? "", _regPassword));
-            _feedbackSuccess = res.Success;
-            _feedbackMessage = res.Message;
-
-            if (res.Success && res.Profile is not null)
-            {
-                Session.SetSession(res.Profile, res.AuthToken);
-                _lastCloudSync = await UserService.SyncProgressionToCloudAsync(res.Profile.Id);
-                await SaveSessionToBrowserAsync(res.Profile.Id);
-                _regUsername = string.Empty;
-                _regEmail = string.Empty;
-                _regPassword = string.Empty;
-                await InvokeAsync(StateHasChanged);
-            }
-        }
-        catch (Exception ex)
-        {
-            _feedbackSuccess = false;
-            _feedbackMessage = $"Erreur lors de la création du compte sur Supabase : {ex.Message}";
-        }
-        finally
-        {
-            _isSubmitting = false;
+            Session.SetSession(res.Profile, res.AuthToken);
+            await SaveSessionToBrowserAsync(res.Profile.Id);
+            _feedbackSuccess = true;
+            _feedbackMessage = $"Connecté en tant que {res.Profile.Username} (synchronisé avec Supabase PostgreSQL).";
         }
     }
 
     private async Task ExecuteLoginAsync()
     {
-        if (string.IsNullOrWhiteSpace(_loginIdentifier) || string.IsNullOrWhiteSpace(_loginPassword))
-        {
-            _feedbackSuccess = false;
-            _feedbackMessage = "Veuillez renseigner votre pseudonyme ou adresse e-mail ainsi que votre mot de passe.";
-            return;
-        }
-
         _isSubmitting = true;
-        _feedbackMessage = null;
         try
         {
             var res = await UserService.LoginAsync(new LoginRequestDto(_loginIdentifier.Trim(), _loginPassword));
             _feedbackSuccess = res.Success;
             _feedbackMessage = res.Message;
-
             if (res.Success && res.Profile is not null)
             {
                 Session.SetSession(res.Profile, res.AuthToken);
-                _lastCloudSync = await UserService.SyncProgressionToCloudAsync(res.Profile.Id);
                 await SaveSessionToBrowserAsync(res.Profile.Id);
                 _loginPassword = string.Empty;
-                await InvokeAsync(StateHasChanged);
             }
-        }
-        catch (Exception ex)
-        {
-            _feedbackSuccess = false;
-            _feedbackMessage = $"Erreur lors de la connexion à Supabase : {ex.Message}";
         }
         finally
         {
@@ -691,52 +390,35 @@ else
         }
     }
 
-    private async Task ExecuteCloudRestoreAsync()
+    private async Task ExecuteRegisterAsync()
     {
-        if (string.IsNullOrWhiteSpace(_cloudRestoreInput))
-        {
-            _feedbackSuccess = false;
-            _feedbackMessage = "Veuillez renseigner votre code de transfert Cloud.";
-            return;
-        }
-
+        _isSubmitting = true;
         try
         {
-            var res = await UserService.RestoreProgressionFromCloudAsync(_cloudRestoreInput.Trim());
+            var res = await UserService.RegisterAsync(new RegisterUserRequestDto(_regUsername.Trim(), _regEmail.Trim(), _regPassword));
             _feedbackSuccess = res.Success;
             _feedbackMessage = res.Message;
-
             if (res.Success && res.Profile is not null)
             {
                 Session.SetSession(res.Profile, res.AuthToken);
-                _lastCloudSync = await UserService.SyncProgressionToCloudAsync(res.Profile.Id);
                 await SaveSessionToBrowserAsync(res.Profile.Id);
-                _cloudRestoreInput = string.Empty;
-                await InvokeAsync(StateHasChanged);
+                _regUsername = string.Empty;
+                _regEmail = string.Empty;
+                _regPassword = string.Empty;
             }
         }
-        catch (Exception ex)
+        finally
         {
-            _feedbackSuccess = false;
-            _feedbackMessage = $"Erreur lors de la restauration Cloud : {ex.Message}";
+            _isSubmitting = false;
         }
     }
 
     private async Task LogoutAsync()
     {
         Session.ClearSession();
-        _lastCloudSync = null;
-        try
-        {
-            await LocalStorage.DeleteAsync("bioma_cloud_player_id");
-        }
-        catch
-        {
-            // Ignore
-        }
+        try { await LocalStorage.DeleteAsync("bioma_cloud_player_id"); } catch { }
         _feedbackSuccess = true;
-        _feedbackMessage = "Session clôturée. Vos données demeurent sécurisées et répliquées sur le Cloud.";
-        await InvokeAsync(StateHasChanged);
+        _feedbackMessage = "Vous êtes déconnecté. Choisissez un compte ci-dessous.";
     }
 
     private async Task SelectEmblemAvatarAsync(string emblemDataUri)
@@ -746,52 +428,8 @@ else
         if (updated is not null)
         {
             Session.SetSession(updated);
-            _lastCloudSync = await UserService.SyncProgressionToCloudAsync(updated.Id);
             _feedbackSuccess = true;
-            _feedbackMessage = "Emblème de profil appliqué et synchronisé sur le Cloud (US-05).";
-        }
-    }
-
-    private async Task OnAvatarFileUploadedAsync(InputFileChangeEventArgs e)
-    {
-        if (Session.CurrentProfile is null) return;
-        try
-        {
-            var file = e.File;
-            using var stream = file.OpenReadStream(maxAllowedSize: 2 * 1024 * 1024);
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms);
-            string base64 = Convert.ToBase64String(ms.ToArray());
-            string dataUri = $"data:{file.ContentType};base64,{base64}";
-
-            var updated = await UserService.UpdateAvatarAsync(Session.CurrentProfile.Id, dataUri);
-            if (updated is not null)
-            {
-                Session.SetSession(updated);
-                _lastCloudSync = await UserService.SyncProgressionToCloudAsync(updated.Id);
-                _customAvatarUrl = string.Empty;
-                _feedbackSuccess = true;
-                _feedbackMessage = "Votre image a été importée et répliquée sur le Cloud (US-05).";
-            }
-        }
-        catch (Exception ex)
-        {
-            _feedbackSuccess = false;
-            _feedbackMessage = $"Erreur lors de l'import (limite 2 Mo) : {ex.Message}";
-        }
-    }
-
-    private async Task SaveCustomAvatarAsync()
-    {
-        if (Session.CurrentProfile is null || string.IsNullOrWhiteSpace(_customAvatarUrl)) return;
-        var updated = await UserService.UpdateAvatarAsync(Session.CurrentProfile.Id, _customAvatarUrl);
-        if (updated is not null)
-        {
-            Session.SetSession(updated);
-            _lastCloudSync = await UserService.SyncProgressionToCloudAsync(updated.Id);
-            _customAvatarUrl = string.Empty;
-            _feedbackSuccess = true;
-            _feedbackMessage = "Avatar personnalisé appliqué et synchronisé sur le Cloud (US-05).";
+            _feedbackMessage = "Avatar mis à jour et synchronisé sur Supabase PostgreSQL.";
         }
     }
 
@@ -802,42 +440,11 @@ else
         if (updated is not null)
         {
             Session.SetSession(updated);
-            _lastCloudSync = await UserService.SyncProgressionToCloudAsync(updated.Id);
-            _feedbackSuccess = true;
-            _feedbackMessage = $"Deck mis à jour ({updated.ActiveDeck.Count} carte(s) active(s)) et répliqué sur le Cloud (US-03 & US-04).";
         }
-    }
-
-    private async Task ExecuteManualCloudSyncAsync()
-    {
-        if (Session.CurrentProfile is null) return;
-        _lastCloudSync = await UserService.SyncProgressionToCloudAsync(Session.CurrentProfile.Id);
-        if (_lastCloudSync is not null)
-        {
-            var refreshed = await UserService.GetProfileWithInventoryAsync(Session.CurrentProfile.Id);
-            if (refreshed is not null)
-            {
-                Session.SetSession(refreshed);
-            }
-            _feedbackSuccess = true;
-            _feedbackMessage = _lastCloudSync.StatusMessage;
-        }
-    }
-
-    private async Task TriggerManualSyncAndReportAsync()
-    {
-        await ExecuteManualCloudSyncAsync();
     }
 
     private async Task SaveSessionToBrowserAsync(Guid playerId)
     {
-        try
-        {
-            await LocalStorage.SetAsync("bioma_cloud_player_id", playerId);
-        }
-        catch
-        {
-            // Ignore
-        }
+        try { await LocalStorage.SetAsync("bioma_cloud_player_id", playerId); } catch { }
     }
 }

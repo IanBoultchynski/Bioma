@@ -19,25 +19,27 @@
         </a>
 
         <nav class="bioma-nav-links">
-            <NavLink class="bioma-nav-link" href="" Match="NavLinkMatch.All">Explorateur GBIF &amp; iNaturalist</NavLink>
-            <NavLink class="bioma-nav-link" href="profil">Utilisateurs &amp; Profil (US 1-6)</NavLink>
-            <NavLink class="bioma-nav-link" href="tirage">Tirage</NavLink>
+            <NavLink class="bioma-nav-link" href="" Match="NavLinkMatch.All">Explorateur &amp; Catalogue</NavLink>
+            <NavLink class="bioma-nav-link" href="tirage">Tirage Gacha</NavLink>
+            <NavLink class="bioma-nav-link" href="quiz">Quiz Quotidien</NavLink>
+            <NavLink class="bioma-nav-link" href="profil">Mon Deck &amp; Profil</NavLink>
         </nav>
     </div>
 
     <div class="bioma-user-bar">
         @if (Session.CurrentProfile is not null)
         {
-            <a href="/profil" class="ai-capsule-pill" style="text-decoration: none;">
-                <svg class="ai-capsule-icon user-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
-                    <circle cx="12" cy="7" r="4"/>
-                </svg>
-                <span class="ai-capsule-text">@Session.CurrentProfile.Username</span>
-                <span class="ai-capsule-sep">|</span>
-                <span class="ai-capsule-accent">@Session.CurrentProfile.Stats.TotalCardsOwned carte(s)</span>
+            <a href="/tirage" class="bioma-currency-pill" title="Crédits d'exploration">
+                <span>@Session.CurrentProfile.Stats.VirtualCurrency crédits</span>
             </a>
-            <a href="/profil" title="Voir mon profil">
+
+            <a href="/profil" class="bioma-currency-pill" title="Mon Deck et mon Inventaire">
+                <span>@Session.CurrentProfile.Username</span>
+                <span style="opacity: 0.45;">·</span>
+                <span style="color: var(--figma-green-accent);">@Session.CurrentProfile.Stats.TotalCardsOwned cartes</span>
+            </a>
+
+            <a href="/profil" title="Profil @Session.CurrentProfile.Username">
                 <img src="@Session.CurrentProfile.AvatarUrl"
                      alt="@Session.CurrentProfile.Username"
                      class="bioma-avatar"
@@ -46,15 +48,8 @@
         }
         else
         {
-            <a href="/profil" class="ai-capsule-pill" style="text-decoration: none;">
-                <svg class="ai-capsule-icon cloud-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="7.5" cy="15.5" r="5.5"/>
-                    <path d="m21 2-9.6 9.6"/>
-                    <path d="m15.5 7.5 3 3"/>
-                </svg>
-                <span class="ai-capsule-text">Connexion</span>
-                <span class="ai-capsule-sep">|</span>
-                <span class="ai-capsule-accent">Profil</span>
+            <a href="/profil" class="btn-outline" style="padding: 0.35rem 0.85rem; font-size: 0.78rem;">
+                <span>Se connecter</span>
             </a>
         }
     </div>
@@ -65,6 +60,8 @@
 </main>
 
 @code {
+    private static readonly Guid DefaultDemoPlayerId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+
     protected override void OnInitialized()
     {
         Session.OnChange += HandleSessionChanged;
@@ -81,20 +78,23 @@
         {
             try
             {
+                Guid targetId = DefaultDemoPlayerId;
                 var storedId = await LocalStorage.GetAsync<Guid>("bioma_cloud_player_id");
                 if (storedId.Success && storedId.Value != Guid.Empty)
                 {
-                    var restoredProfile = await UserService.GetProfileWithInventoryAsync(storedId.Value);
-                    if (restoredProfile is not null)
-                    {
-                        Session.SetSession(restoredProfile);
-                        await InvokeAsync(StateHasChanged);
-                    }
+                    targetId = storedId.Value;
+                }
+
+                var restoredProfile = await UserService.GetProfileWithInventoryAsync(targetId);
+                if (restoredProfile is not null)
+                {
+                    Session.SetSession(restoredProfile);
+                    await InvokeAsync(StateHasChanged);
                 }
             }
             catch
             {
-                // Ignore si le stockage navigateur n'est pas encore accessible
+                // Ignore si le stockage navigateur n'est pas encore prêt
             }
         }
     }

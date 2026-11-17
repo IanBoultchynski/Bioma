@@ -1,32 +1,39 @@
 @using Bioma.Application.DTOs
+@using Bioma.Domain.Enums
 
 @{
-    string dotClass = Card.SourceApi.Equals("GBIF", StringComparison.OrdinalIgnoreCase)
-        ? "rare"
-        : "peu-commune";
+    string rarityCss = PolaroidPrint.RarityCss(Card.Rarity);
 }
 
-<div class="polaroid-card @(IsSelected ? "selected" : "")"
-     style="@(Compact ? "width: 112px; padding: 5px 5px 8px;" : "")"
+<div class="polaroid-card rarity-border-@rarityCss @(IsSelected ? "selected" : "")"
+     style="@(Compact ? "width: 112px; padding: 5px 5px 8px;" : "width: 100%;")"
      @onclick="() => OnSelect.InvokeAsync(Card)">
     <div class="polaroid-photo-wrap" style="@(Compact ? "margin-bottom: 5px;" : "")">
         <img class="polaroid-photo" src="@Card.ImageUrl" alt="@Card.Name" loading="lazy" />
+        <span class="rarity-badge @rarityCss" style="position: absolute; top: 6px; right: 6px; font-size: @(Compact ? "0.5rem" : "0.58rem"); padding: 2px 7px;">
+            @Card.RarityLabel
+        </span>
     </div>
 
-    <div class="polaroid-name" style="@(Compact ? "font-size: 0.74rem;" : "")">@Card.Name</div>
-    <div class="polaroid-scientific" style="@(Compact ? "font-size: 0.6rem; margin-bottom: 4px;" : "")">@Card.ScientificSubtitle</div>
+    <div class="polaroid-name" style="@(Compact ? "font-size: 0.74rem;" : "")" title="@Card.Name">@Card.Name</div>
+    <div class="polaroid-scientific" style="@(Compact ? "font-size: 0.6rem; margin-bottom: 4px;" : "")" title="@Card.ScientificSubtitle">@Card.ScientificSubtitle</div>
+
+    @if (!Compact && Card.NaturalOccurrencesCount > 0)
+    {
+        <div style="font-size: 0.62rem; color: #3D5647; margin-bottom: 5px; font-weight: 600;">
+            @Card.NaturalOccurrencesCount.ToString("N0") obs. nature · @Card.DropRatePercent %
+        </div>
+    }
 
     <div class="polaroid-footer" style="@(Compact ? "font-size: 0.58rem; padding-top: 3px;" : "")">
-        <span style="display: inline-flex; align-items: center; gap: 4px;">
-            <svg class="polaroid-source-icon @dotClass" width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="12,2 22,12 12,22 2,12" />
-            </svg>
+        <span style="display: inline-flex; align-items: center; gap: 5px;">
+            <span class="polaroid-dot @rarityCss" style="margin: 0;"></span>
             <span>@Card.SourceApi</span>
         </span>
         @if (!Compact)
         {
-            <span style="background: rgba(0,0,0,0.08); color: #3E5246; padding: 1px 5px; border-radius: 3px; font-weight: 600; font-size: 0.6rem;">
-                @Card.ObservedDate
+            <span style="background: rgba(0,0,0,0.08); color: #2D4236; padding: 1px 6px; border-radius: 3px; font-weight: 600; font-size: 0.6rem;">
+                ATK @Card.BaseAttack
             </span>
         }
     </div>

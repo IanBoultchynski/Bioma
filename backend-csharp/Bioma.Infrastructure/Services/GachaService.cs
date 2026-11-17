@@ -9,8 +9,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Bioma.Infrastructure.Services;
 
 /// <summary>
-/// Épique 5 : Tirage / Gacha (US-27 à US-31).
-/// - US-27 : dépense de monnaie virtuelle pour tirer une carte
+/// Épique 5 : Tirage / Gacha (US-27 à US-31) + Tirages Gratuits Temporels (Max 10, +1 toutes les 10 min).
+/// - US-27 : dépense de monnaie virtuelle ou utilisation du stock de tirages gratuits
 /// - US-28 : les espèces rares dans la vraie nature (occurrences API) sont les plus difficiles à obtenir
 /// - US-29 : renvoie les cartes dans l'ordre pour l'animation de révélation Polaroïd
 /// - US-30 : chaque carte indique clairement sa rareté (Commune → Légendaire) et sa couleur associée
@@ -21,6 +21,10 @@ public class GachaService : IGachaService
     public const int SinglePullCost = 100;
     public const int MultiPullCount = 10;
     public const int MultiPullCost = 900; // ×10 = 10 % de réduction
+
+    public const int MaxFreePullsStock = 10;
+    public const int FreePullRegenMinutes = 10;
+    public const int FreePullRegenSeconds = FreePullRegenMinutes * 60;
 
     /// <summary>
     /// Table de probabilités par carte (poids relatifs, total = 100),
@@ -65,7 +69,6 @@ public class GachaService : IGachaService
 
     /// <summary>
     /// US-28 : Convertit le nombre d'observations réelles dans la nature (issu de l'API) en niveau de rareté Bioma.
-    /// Plus une espèce est rare dans la vraie nature, plus son palier est élevé et difficile à obtenir.
     /// </summary>
     public static CardRarity ComputeRarityFromOccurrences(long occurrenceCount) => occurrenceCount switch
     {
@@ -77,7 +80,6 @@ public class GachaService : IGachaService
 
     public static (int Atk, int Def, int Spd, double WeightKg) ComputeStatsFromRarity(CardRarity rarity, string scientificName)
     {
-        // Légère variation déterministe basée sur le nom scientifique pour que chaque espèce ait un profil propre
         int hash = Math.Abs(scientificName.GetHashCode());
         int v1 = hash % 9;
         int v2 = (hash / 11) % 9;
@@ -125,6 +127,58 @@ public class GachaService : IGachaService
         _                     => "Standard"
     };
 
+    /// <summary>
+    /// Calcule en temps réel le stock de tirages gratuits (max 10, +1 toutes les 10 minutes)
+    /// à partir de l'historique des tirages gratuits enregistrés dans Supabase PostgreSQL.
+    /// </summary>
+    public static (int AvailableStock, int SecondsUntilNext, DateTimeOffset? FullAtUtc) CalculateFreePullsFromTimestamps(
+        IEnumerable<DateTimeOffset> recentFreePullTimes,
+        DateTimeOffset nowUtc)
+    {
+        DateTimeOffset fullAt = DateTimeOffset.MinValue;
+
+        foreach (var pulledAt in recentFreePullTimes.OrderBy(t => t))
+        {
+            var baseTime = fullAt > pulledAt ? fullAt : pulledAt;
+            fullAt = baseTime.AddMinutes(FreePullRegenMinutes);
+
+            var maxCeiling = pulledAt.AddMinutes(MaxFreePullsStock * FreePullRegenMinutes);
+            if (fullAt > maxCeiling)
+            {
+                fullAt = maxCeiling;
+            }
+        }
+
+        if (fullAt <= nowUtc)
+        {
+            return (MaxFreePullsStock, 0, null);
+        }
+
+        double remainingSecondsToFull = (fullAt - nowUtc).TotalSeconds;
+        int missingPulls = Math.Clamp((int)Math.Ceiling(remainingSecondsToFull / FreePullRegenSeconds), 1, MaxFreePullsStock);
+        int availableStock = Math.Clamp(MaxFreePullsStock - missingPulls, 0, MaxFreePullsStock);
+
+        double secondsInCurrentCycle = remainingSecondsToFull - ((missingPulls - 1) * FreePullRegenSeconds);
+        int secondsUntilNext = Math.Clamp((int)Math.Ceiling(secondsInCurrentCycle), 1, FreePullRegenSeconds);
+
+        return (availableStock, secondsUntilNext, fullAt);
+    }
+
+    private async Task<(int AvailableStock, int SecondsUntilNext, DateTimeOffset? FullAtUtc)> GetFreePullsStateCoreAsync(
+        Guid playerId,
+        DateTimeOffset nowUtc,
+        CancellationToken ct)
+    {
+        var windowStart = nowUtc.AddMinutes(-(MaxFreePullsStock * FreePullRegenMinutes + 5));
+        var recentFreeTimes = await _db.GachaPulls
+            .AsNoTracking()
+            .Where(g => g.PlayerId == playerId && g.CurrencySpent == 0 && g.PulledAt >= windowStart)
+            .Select(g => g.PulledAt)
+            .ToListAsync(ct);
+
+        return CalculateFreePullsFromTimestamps(recentFreeTimes, nowUtc);
+    }
+
     public async Task<GachaBannerDto> GetBannerAsync(Guid playerId, CancellationToken ct = default)
     {
         await _gate.WaitAsync(ct);
@@ -136,14 +190,31 @@ public class GachaService : IGachaService
                 .Select(p => p.VirtualCurrency)
                 .FirstOrDefaultAsync(ct);
 
-            var catalogueSize = await DrawablePool().AsNoTracking().CountAsync(ct);
+            var catalogueSize = await DrawablePool()
+                .AsNoTracking()
+                .Select(c => c.ScientificName)
+                .Distinct()
+                .CountAsync(ct);
+
+            var (freeAvailable, secondsUntilNext, fullAtUtc) = await GetFreePullsStateCoreAsync(playerId, DateTimeOffset.UtcNow, ct);
 
             int totalWeight = DropTable.Sum(d => d.Weight);
             var odds = DropTable
                 .Select(d => new GachaOddsDto(d.Rarity, RarityLabel(d.Rarity), Math.Round(d.Weight * 100.0 / totalWeight, 1)))
                 .ToList();
 
-            return new GachaBannerDto(SinglePullCost, MultiPullCost, MultiPullCount, currency, catalogueSize, odds);
+            return new GachaBannerDto(
+                SinglePullCost,
+                MultiPullCost,
+                MultiPullCount,
+                currency,
+                catalogueSize,
+                odds,
+                freeAvailable,
+                MaxFreePullsStock,
+                FreePullRegenMinutes,
+                secondsUntilNext,
+                fullAtUtc);
         }
         finally
         {
@@ -163,6 +234,48 @@ public class GachaService : IGachaService
             player.LastCloudSyncAt = DateTimeOffset.UtcNow;
             await _db.SaveChangesAsync(ct);
             return player.VirtualCurrency;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task<GachaPullResultDto> PullFreeAsync(Guid playerId, int count = 1, CancellationToken ct = default)
+    {
+        if (count < 1 || count > MaxFreePullsStock)
+        {
+            return Fail($"Nombre de tirages gratuits invalide ({count}).", 0);
+        }
+
+        await _gate.WaitAsync(ct);
+        try
+        {
+            var player = await _db.Players.FirstOrDefaultAsync(p => p.Id == playerId, ct);
+            if (player is null)
+            {
+                return Fail("Joueur introuvable. Connectez-vous dans l'onglet Mon Deck & Profil.", 0);
+            }
+
+            var nowUtc = DateTimeOffset.UtcNow;
+            var (freeAvailable, secondsUntilNext, fullAtUtc) = await GetFreePullsStateCoreAsync(playerId, nowUtc, ct);
+
+            if (freeAvailable < count)
+            {
+                int mins = secondsUntilNext / 60;
+                int secs = secondsUntilNext % 60;
+                return new GachaPullResultDto(
+                    false,
+                    $"Stock de tirages gratuits insuffisant ({freeAvailable}/{MaxFreePullsStock}). Prochaine carte gratuite dans {mins:D2}:{secs:D2}.",
+                    0,
+                    player.VirtualCurrency,
+                    new List<GachaDrawnCardDto>(),
+                    freeAvailable,
+                    secondsUntilNext,
+                    fullAtUtc);
+            }
+
+            return await ExecutePullCoreAsync(player, count, isFreePull: true, nowUtc, ct);
         }
         finally
         {
@@ -192,109 +305,130 @@ public class GachaService : IGachaService
                 return Fail($"Solde insuffisant : il faut {cost} crédits, vous avez {player.VirtualCurrency}.", player.VirtualCurrency);
             }
 
-            var pool = await DrawablePool().AsNoTracking().ToListAsync(ct);
-            if (pool.Count == 0)
-            {
-                return Fail("Le catalogue d'espèces est vide : ajoutez des espèces depuis l'explorateur.", player.VirtualCurrency);
-            }
-
-            // Déduplication par nom scientifique pour que chaque espèce du catalogue ait sa place propre
-            var uniquePool = pool
-                .GroupBy(s => s.ScientificName, StringComparer.OrdinalIgnoreCase)
-                .Select(g => g.First())
-                .ToList();
-
-            var poolByRarity = uniquePool
-                .GroupBy(s => s.Rarity)
-                .ToDictionary(g => g.Key, g => g.ToList());
-
-            var ownedSpeciesIds = (await _db.PlayerCards
-                    .AsNoTracking()
-                    .Where(pc => pc.PlayerId == playerId)
-                    .Select(pc => pc.SpeciesCardId)
-                    .ToListAsync(ct))
-                .ToHashSet();
-
-            var rolledRarities = Enumerable.Range(0, count).Select(_ => RollRarity()).ToList();
-
-            if (count == MultiPullCount && rolledRarities.All(r => r < CardRarity.Rare))
-            {
-                rolledRarities[_rng.Next(count)] = CardRarity.Rare;
-            }
-
-            player.VirtualCurrency -= cost;
-            player.LastCloudSyncAt = DateTimeOffset.UtcNow;
-            int costPerCard = cost / count;
-
-            var drawnCards = new List<GachaDrawnCardDto>();
-            foreach (var rarity in rolledRarities)
-            {
-                var species = PickSpecies(poolByRarity, rarity);
-                long naturalOccurrences = GetEstimatedNaturalOccurrences(species.ScientificName, species.Rarity);
-                double dropRate = DropRateForRarity(species.Rarity);
-
-                var playerCard = new PlayerCard
-                {
-                    PlayerId = player.Id,
-                    SpeciesCardId = species.Id,
-                    CustomNickname = species.CommonName,
-                    Level = 1,
-                    ExperiencePoints = 0,
-                    Stage = LifeStage.Juvenile,
-                    State = CardState.Disponible,
-                    IsInActiveDeck = false,
-                    CurrentAttack = species.BaseAttack,
-                    CurrentDefense = species.BaseDefense,
-                    CurrentSpeed = species.BaseSpeed,
-                    WeightKg = species.AverageWeightKg,
-                    PolaroidFinish = PolaroidFinishForRarity(species.Rarity),
-                    ObtainedVia = "Gacha",
-                    AcquiredAt = DateTimeOffset.UtcNow
-                };
-                _db.PlayerCards.Add(playerCard);
-
-                _db.GachaPulls.Add(new GachaPullRecord
-                {
-                    PlayerId = player.Id,
-                    PlayerCardId = playerCard.Id,
-                    Rarity = species.Rarity,
-                    CurrencySpent = costPerCard,
-                    IsMultiPull = count > 1,
-                    PulledAt = DateTimeOffset.UtcNow
-                });
-
-                bool isNew = ownedSpeciesIds.Add(species.Id);
-                drawnCards.Add(new GachaDrawnCardDto(
-                    playerCard.Id,
-                    species.Id,
-                    species.CommonName,
-                    species.ScientificName,
-                    species.Family,
-                    species.ImageUrl,
-                    species.Rarity,
-                    RarityLabel(species.Rarity),
-                    isNew,
-                    naturalOccurrences,
-                    dropRate,
-                    playerCard.CurrentAttack,
-                    playerCard.CurrentDefense,
-                    playerCard.CurrentSpeed,
-                    playerCard.IsInActiveDeck));
-            }
-
-            await _db.SaveChangesAsync(ct);
-
-            return new GachaPullResultDto(
-                true,
-                $"{count} carte(s) ajoutée(s) à l'inventaire de {player.Username}.",
-                cost,
-                player.VirtualCurrency,
-                drawnCards);
+            return await ExecutePullCoreAsync(player, count, isFreePull: false, DateTimeOffset.UtcNow, ct);
         }
         finally
         {
             _gate.Release();
         }
+    }
+
+    private async Task<GachaPullResultDto> ExecutePullCoreAsync(
+        PlayerProfile player,
+        int count,
+        bool isFreePull,
+        DateTimeOffset nowUtc,
+        CancellationToken ct)
+    {
+        var pool = await DrawablePool().AsNoTracking().ToListAsync(ct);
+        if (pool.Count == 0)
+        {
+            return Fail("Le catalogue d'espèces est vide : ajoutez des espèces depuis l'explorateur.", player.VirtualCurrency);
+        }
+
+        var uniquePool = pool
+            .GroupBy(s => s.ScientificName, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+
+        var poolByRarity = uniquePool
+            .GroupBy(s => s.Rarity)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var ownedSpeciesIds = (await _db.PlayerCards
+                .AsNoTracking()
+                .Where(pc => pc.PlayerId == player.Id)
+                .Select(pc => pc.SpeciesCardId)
+                .ToListAsync(ct))
+            .ToHashSet();
+
+        var rolledRarities = Enumerable.Range(0, count).Select(_ => RollRarity()).ToList();
+
+        // Garantie du ×10 : au moins une carte Rare ou Légendaire
+        if (count == MultiPullCount && rolledRarities.All(r => r < CardRarity.Rare))
+        {
+            rolledRarities[_rng.Next(count)] = CardRarity.Rare;
+        }
+
+        int totalCost = isFreePull ? 0 : (count == 1 ? SinglePullCost : MultiPullCost);
+        int costPerCard = isFreePull ? 0 : (totalCost / count);
+
+        if (!isFreePull)
+        {
+            player.VirtualCurrency -= totalCost;
+        }
+        player.LastCloudSyncAt = nowUtc;
+
+        var drawnCards = new List<GachaDrawnCardDto>();
+        for (int i = 0; i < rolledRarities.Count; i++)
+        {
+            var rarity = rolledRarities[i];
+            var species = PickSpecies(poolByRarity, rarity);
+            long naturalOccurrences = GetEstimatedNaturalOccurrences(species.ScientificName, species.Rarity);
+            double dropRate = DropRateForRarity(species.Rarity);
+
+            var playerCard = new PlayerCard
+            {
+                PlayerId = player.Id,
+                SpeciesCardId = species.Id,
+                CustomNickname = species.CommonName,
+                Level = 1,
+                ExperiencePoints = 0,
+                Stage = LifeStage.Juvenile,
+                State = CardState.Disponible,
+                IsInActiveDeck = false,
+                CurrentAttack = species.BaseAttack,
+                CurrentDefense = species.BaseDefense,
+                CurrentSpeed = species.BaseSpeed,
+                WeightKg = species.AverageWeightKg,
+                PolaroidFinish = PolaroidFinishForRarity(species.Rarity),
+                ObtainedVia = "Gacha",
+                AcquiredAt = nowUtc.AddMilliseconds(i)
+            };
+            _db.PlayerCards.Add(playerCard);
+
+            _db.GachaPulls.Add(new GachaPullRecord
+            {
+                PlayerId = player.Id,
+                PlayerCardId = playerCard.Id,
+                Rarity = species.Rarity,
+                CurrencySpent = costPerCard,
+                IsMultiPull = count > 1,
+                PulledAt = nowUtc.AddMilliseconds(i)
+            });
+
+            bool isNew = ownedSpeciesIds.Add(species.Id);
+            drawnCards.Add(new GachaDrawnCardDto(
+                playerCard.Id,
+                species.Id,
+                species.CommonName,
+                species.ScientificName,
+                species.Family,
+                species.ImageUrl,
+                species.Rarity,
+                RarityLabel(species.Rarity),
+                isNew,
+                naturalOccurrences,
+                dropRate,
+                playerCard.CurrentAttack,
+                playerCard.CurrentDefense,
+                playerCard.CurrentSpeed,
+                playerCard.IsInActiveDeck));
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        var (freeAvailable, secondsUntilNext, fullAtUtc) = await GetFreePullsStateCoreAsync(player.Id, nowUtc, ct);
+
+        return new GachaPullResultDto(
+            true,
+            $"{count} carte(s) ajoutée(s) à l'inventaire de {player.Username}.",
+            totalCost,
+            player.VirtualCurrency,
+            drawnCards,
+            freeAvailable,
+            secondsUntilNext,
+            fullAtUtc);
     }
 
     public static string RarityLabel(CardRarity rarity) => rarity switch

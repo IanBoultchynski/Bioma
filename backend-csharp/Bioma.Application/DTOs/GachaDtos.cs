@@ -12,7 +12,7 @@ public record GachaOddsDto(
 );
 
 /// <summary>
-/// Informations affichées avant le tirage : prix, solde du joueur, probabilités (US-27, US-31).
+/// Informations affichées avant le tirage : prix, solde du joueur, stock de tirages gratuits (max 10, +1 / 10 min) et probabilités.
 /// </summary>
 public record GachaBannerDto(
     int SinglePullCost,
@@ -20,7 +20,12 @@ public record GachaBannerDto(
     int MultiPullCount,
     int PlayerCurrency,
     int CatalogueSize,
-    List<GachaOddsDto> Odds
+    List<GachaOddsDto> Odds,
+    int FreePullsAvailable = 10,
+    int MaxFreePulls = 10,
+    int FreePullRegenMinutes = 10,
+    int SecondsUntilNextFreePull = 0,
+    DateTimeOffset? FreePullsFullAtUtc = null
 );
 
 /// <summary>
@@ -45,12 +50,15 @@ public record GachaDrawnCardDto(
 );
 
 /// <summary>
-/// Résultat d'un tirage simple (×1) ou multiple (×10).
+/// Résultat d'un tirage simple (×1), multiple (×10) ou gratuit (stock temporel).
 /// </summary>
 public record GachaPullResultDto(
     bool Success,
     string Message,
     int CurrencySpent,
     int RemainingCurrency,
-    List<GachaDrawnCardDto> Cards
+    List<GachaDrawnCardDto> Cards,
+    int RemainingFreePulls = 10,
+    int SecondsUntilNextFreePull = 0,
+    DateTimeOffset? FreePullsFullAtUtc = null
 );

@@ -3,6 +3,7 @@
 @using Bioma.Application.DTOs
 @using Bioma.Application.Interfaces
 @using Bioma.Domain.Enums
+@using Bioma.Infrastructure.Services
 @inject IGachaService Gacha
 @inject IUserProfileService UserService
 @inject UserSessionState Session
@@ -11,21 +12,27 @@
     <div>
         <h1 class="bioma-title">Tirage · Échos du vivant</h1>
         <p class="bioma-subtitle">
-            Dépensez vos crédits pour révéler des espèces. Plus un animal est rare dans la vraie nature, plus il est difficile à obtenir.
+            Récupérez 1 carte gratuite toutes les 10 minutes (stock max 10) ou utilisez vos crédits d'exploration.
         </p>
     </div>
 
     <div style="display: flex; align-items: center; gap: 0.85rem; flex-wrap: wrap;">
-        @if (_activeProfile is not null)
-        {
-            <div style="display: flex; align-items: center; gap: 0.55rem; background: rgba(15, 32, 22, 0.7); border: 1px solid var(--figma-border-strong); padding: 0.4rem 0.8rem; border-radius: 8px;">
-                <img src="@_activeProfile.AvatarUrl" alt="@_activeProfile.Username" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover;" />
-                <div style="font-size: 0.74rem; line-height: 1.25;">
-                    <div style="font-weight: 700; color: var(--figma-cream);">@_activeProfile.Username</div>
-                    <div style="color: var(--figma-text-muted);">@_activeProfile.Inventory.Count carte(s) · @_activeProfile.ActiveDeck.Count en Deck</div>
-                </div>
+        <div class="bioma-stat-counter" style="border-color: rgba(104, 197, 135, 0.5);">
+            <span class="bioma-stat-number" style="color: var(--figma-green-accent);">@_freePullsAvailable / @GachaService.MaxFreePullsStock</span>
+            <div style="text-align: left; font-size: 0.74rem; color: var(--figma-text-soft); line-height: 1.35;">
+                <div>tirages gratuits</div>
+                @if (_freePullsAvailable < GachaService.MaxFreePullsStock)
+                {
+                    <div style="color: var(--figma-gold); font-weight: 600; font-size: 0.7rem;">
+                        +1 dans @FormatTimer(_secondsUntilNextFree)
+                    </div>
+                }
+                else
+                {
+                    <div style="color: var(--figma-green-accent); font-size: 0.7rem;">Stock maximum atteint</div>
+                }
             </div>
-        }
+        </div>
 
         <div class="bioma-stat-counter">
             <span class="bioma-stat-number">@(_banner?.PlayerCurrency ?? 0)</span>
@@ -47,11 +54,101 @@
 }
 else
 {
-    <div class="refuge-grid" style="grid-template-columns: 1.02fr 1.38fr; gap: 2rem; align-items: start;">
-        <!-- COLONNE GAUCHE : Probabilités corrélées à la nature & déclenchement -->
+    <div class="refuge-grid" style="grid-template-columns: 1.05fr 1.35fr; gap: 2rem; align-items: start;">
+        <!-- COLONNE GAUCHE : Stock de tirages gratuits (1 / 10 min, max 10) + Probabilités + Tirages crédits -->
         <section class="gacha-panel">
-            <div class="figma-section-header" style="margin-bottom: 0.85rem;">
-                <h2 class="figma-section-title">Niveaux de rareté &amp; Probabilités</h2>
+            <!-- CARTE CENTRALE : TIRAGES GRATUITS RECHARGEABLES -->
+            <div class="gacha-hero-card">
+                <div class="gacha-stock-header">
+                    <div>
+                        <div class="gacha-stock-title">Stock de Tirages Gratuits</div>
+                        <div class="gacha-stock-subtitle">
+                            Recharge : 1 carte / 10 min &middot; Stock max @GachaService.MaxFreePullsStock
+                        </div>
+                    </div>
+                    <span class="gacha-stock-pill @(_freePullsAvailable == 0 ? "empty" : "")">
+                        @_freePullsAvailable / @GachaService.MaxFreePullsStock
+                    </span>
+                </div>
+
+                <!-- Jauge moderne et lisible des 10 segments -->
+                <div class="gacha-gauge-container">
+                    <div class="gacha-gauge-grid">
+                        @for (int slot = 0; slot < GachaService.MaxFreePullsStock; slot++)
+                        {
+                            bool isFilled = slot < _freePullsAvailable;
+                            bool isRecharging = slot == _freePullsAvailable && _freePullsAvailable < GachaService.MaxFreePullsStock;
+                            double cycleProgress = isRecharging
+                                ? Math.Clamp(((GachaService.FreePullRegenSeconds - _secondsUntilNextFree) * 100.0) / GachaService.FreePullRegenSeconds, 5, 98)
+                                : 0;
+
+                            <div class="gacha-gauge-cell @(isFilled ? "filled" : isRecharging ? "recharging" : "")">
+                                @if (isFilled)
+                                {
+                                    <div class="gacha-gauge-cell-fill"></div>
+                                }
+                                else if (isRecharging)
+                                {
+                                    <div class="gacha-gauge-cell-recharging"
+                                         style="width: @(cycleProgress.ToString("F0", System.Globalization.CultureInfo.InvariantCulture))%;"></div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="gacha-timing-row">
+                    @if (_freePullsAvailable < GachaService.MaxFreePullsStock)
+                    {
+                        <span>Prochaine carte dans <strong>@FormatTimer(_secondsUntilNextFree)</strong></span>
+                        <span style="color: var(--figma-text-muted);">Plein dans @FormatTotalRemaining()</span>
+                    }
+                    else
+                    {
+                        <span style="color: var(--figma-green-accent); font-weight: 600;">Stock au maximum</span>
+                        <span style="color: var(--figma-text-muted);">10 tirages disponibles</span>
+                    }
+                </div>
+
+                @if (_freePullsAvailable > 0)
+                {
+                    <div style="display: flex; gap: 0.65rem; margin-top: 0.4rem;">
+                        <button type="button"
+                                class="gacha-btn-main gacha-btn-free-active"
+                                disabled="@_isBusy"
+                                @onclick="() => PullFreeAsync(1)">
+                            <span>Tirer 1 carte gratuite</span>
+                            <span style="opacity: 0.85; font-size: 0.78rem; font-weight: 500;">(reste @_freePullsAvailable)</span>
+                        </button>
+
+                        @if (_freePullsAvailable > 1)
+                        {
+                            <button type="button"
+                                    class="btn-outline"
+                                    style="padding: 0.75rem 1rem; border-color: rgba(104, 197, 135, 0.6); color: #E6FFFA; font-weight: 700; white-space: nowrap;"
+                                    disabled="@_isBusy"
+                                    @onclick="() => PullFreeAsync(_freePullsAvailable)">
+                                Tout tirer (&times;@_freePullsAvailable)
+                            </button>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <button type="button"
+                            class="gacha-btn-main gacha-btn-free-disabled"
+                            disabled>
+                        <span>Recharge en cours...</span>
+                        <span style="color: var(--figma-gold); font-weight: 600; font-size: 0.8rem;">
+                            +1 dans @FormatTimer(_secondsUntilNextFree)
+                        </span>
+                    </button>
+                }
+            </div>
+
+            <!-- PROBABILITÉS CORRÉLÉES AUX OBSERVATIONS NATURELLES -->
+            <div class="figma-section-header" style="margin-bottom: 0.65rem;">
+                <h2 class="figma-section-title" style="font-size: 1.05rem;">Niveaux de rareté &amp; Probabilités</h2>
                 <span style="font-size: 0.72rem; color: var(--figma-gold);">Indexé sur la nature</span>
             </div>
 
@@ -64,17 +161,17 @@ else
                                 @odd.Label
                             </span>
                         </div>
-                        <span style="font-size: 0.68rem; color: var(--figma-text-muted);">
+                        <span style="font-size: 0.7rem; color: var(--figma-text-soft);">
                             @GetNaturalThresholdDescription(odd.Rarity)
                         </span>
                     </div>
-                    <span style="font-weight: 700; font-size: 0.95rem; color: var(--figma-cream);">@odd.Percent %</span>
+                    <span style="font-weight: 700; font-size: 1rem; color: var(--figma-cream);">@odd.Percent %</span>
                 </div>
             }
 
-            <div style="background: rgba(12, 26, 18, 0.55); border: 1px solid var(--figma-border); border-radius: 6px; padding: 0.7rem 0.85rem; margin: 0.9rem 0 1.1rem; font-size: 0.75rem; color: var(--figma-text-soft); line-height: 1.45;">
-                <div>Le multi-tirage <strong>×@_banner.MultiPullCount</strong> garantit au moins une carte <span class="rarity-badge rare" style="font-size: 0.58rem; padding: 1px 6px;">Rare</span> ou supérieure.</div>
-                <div style="margin-top: 0.25rem;">Catalogue actif : <strong>@_banner.CatalogueSize espèces réelles</strong>.</div>
+            <div style="background: rgba(12, 26, 18, 0.45); border: 1px solid var(--figma-border); border-radius: 8px; padding: 0.65rem 0.85rem; margin: 0.75rem 0 1rem; font-size: 0.74rem; color: var(--figma-text-soft); line-height: 1.45;">
+                <div>Le tirage <strong>&times;@_banner.MultiPullCount</strong> garantit au moins une carte <span class="rarity-badge rare" style="font-size: 0.58rem; padding: 1px 6px;">Rare</span> ou supérieure.</div>
+                <div style="margin-top: 0.25rem;">Catalogue actif : <strong>@_banner.CatalogueSize espèces réelles</strong> (GBIF &amp; iNaturalist).</div>
             </div>
 
             @if (!string.IsNullOrEmpty(_error))
@@ -82,25 +179,38 @@ else
                 <div class="gacha-error">@_error</div>
             }
 
-            <div style="display: flex; gap: 0.7rem; flex-wrap: wrap;">
-                <button class="btn-sand" style="flex: 1; min-width: 155px;"
+            <!-- TIRAGES SUPPLÉMENTAIRES (CRÉDITS) -->
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.35rem;">
+                <span style="font-size: 0.72rem; font-weight: 700; color: var(--figma-text-muted); text-transform: uppercase; letter-spacing: 0.04em;">
+                    Tirages supplémentaires (Crédits)
+                </span>
+                <span style="font-size: 0.72rem; color: var(--figma-text-soft);">
+                    Solde : <strong style="color: var(--figma-cream);">@_banner.PlayerCurrency crédits</strong>
+                </span>
+            </div>
+
+            <div class="gacha-paid-actions">
+                <button type="button"
+                        class="gacha-btn-credit"
                         disabled="@(_isBusy || _banner.PlayerCurrency < _banner.SinglePullCost)"
                         @onclick="() => PullAsync(1)">
-                    <span>Tirer ×1</span>
-                    <span>@_banner.SinglePullCost crédits</span>
+                    <span class="gacha-btn-credit-label">Tirer &times;1</span>
+                    <span class="gacha-btn-credit-cost">@_banner.SinglePullCost crédits</span>
                 </button>
 
-                <button class="btn-outline" style="flex: 1; min-width: 175px; border-color: var(--figma-gold); color: var(--figma-cream);"
+                <button type="button"
+                        class="gacha-btn-credit highlight"
                         disabled="@(_isBusy || _banner.PlayerCurrency < _banner.MultiPullCost)"
                         @onclick="() => PullAsync(_banner.MultiPullCount)">
-                    <span>Tirer ×@_banner.MultiPullCount (Rare garantie)</span>
-                    <span>@_banner.MultiPullCost</span>
+                    <span class="gacha-btn-credit-label">Tirer &times;@_banner.MultiPullCount</span>
+                    <span class="gacha-btn-credit-cost">@_banner.MultiPullCost crédits</span>
+                    <span class="gacha-guarantee-pill">Rare garantie</span>
                 </button>
             </div>
 
-            <div style="margin-top: 1.15rem; padding-top: 0.85rem; border-top: 1px solid var(--figma-border); display: flex; justify-content: space-between; align-items: center; font-size: 0.76rem;">
+            <div style="margin-top: 1.1rem; padding-top: 0.8rem; border-top: 1px solid var(--figma-border); display: flex; justify-content: space-between; align-items: center; font-size: 0.76rem;">
                 <a href="/profil" style="color: var(--figma-gold); font-weight: 600;">
-                    Consulter mon Deck &amp; Inventaire (@(_activeProfile?.Inventory.Count ?? 0) cartes)
+                    Mon Deck &amp; Inventaire (@(_activeProfile?.Inventory.Count ?? 0) cartes)
                 </a>
                 <a href="/quiz" style="color: var(--figma-text-soft);">
                     Gagner des crédits au Quiz
@@ -121,7 +231,7 @@ else
                     <div class="polaroid-reveal">
                         <img class="polaroid-reveal-media" src="media/polaroid-tirage-debut.png" alt="Appareil Polaroïd Bioma" />
                     </div>
-                    <p>Lancez un tirage ×1 ou ×10 pour développer vos cartes.</p>
+                    <p>Utilisez un tirage gratuit (@_freePullsAvailable/@GachaService.MaxFreePullsStock) ou vos crédits pour développer vos cartes.</p>
                 </div>
             }
             else
@@ -288,6 +398,12 @@ else
     private bool _skip;
     private string? _error;
 
+    // État du stock de tirages gratuits (max 10, +1 toutes les 10 minutes)
+    private int _freePullsAvailable = GachaService.MaxFreePullsStock;
+    private int _secondsUntilNextFree;
+    private DateTimeOffset? _freePullsFullAtUtc;
+    private System.Threading.Timer? _regenTimer;
+
     private Guid ActivePlayerId => Session.CurrentProfile?.Id ?? _activeProfile?.Id ?? DemoPlayerId;
 
     protected override void OnInitialized()
@@ -308,6 +424,7 @@ else
     public void Dispose()
     {
         Session.OnChange -= HandleSessionChanged;
+        _regenTimer?.Dispose();
     }
 
     protected override async Task OnInitializedAsync()
@@ -325,7 +442,70 @@ else
                 Session.SetSession(profile, Session.AuthToken);
             }
         }
+
         _banner = await Gacha.GetBannerAsync(ActivePlayerId);
+        SyncFreePullStateFromBanner(_banner.FreePullsAvailable, _banner.SecondsUntilNextFreePull, _banner.FreePullsFullAtUtc);
+        StartRegenTicker();
+    }
+
+    private void SyncFreePullStateFromBanner(int available, int secondsNext, DateTimeOffset? fullAtUtc)
+    {
+        _freePullsAvailable = available;
+        _secondsUntilNextFree = secondsNext;
+        _freePullsFullAtUtc = fullAtUtc;
+    }
+
+    private void StartRegenTicker()
+    {
+        _regenTimer?.Dispose();
+        _regenTimer = new System.Threading.Timer(async _ =>
+        {
+            if (_freePullsFullAtUtc is null)
+            {
+                if (_freePullsAvailable != GachaService.MaxFreePullsStock || _secondsUntilNextFree != 0)
+                {
+                    _freePullsAvailable = GachaService.MaxFreePullsStock;
+                    _secondsUntilNextFree = 0;
+                    await InvokeAsync(StateHasChanged);
+                }
+                return;
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            if (now >= _freePullsFullAtUtc.Value)
+            {
+                _freePullsAvailable = GachaService.MaxFreePullsStock;
+                _secondsUntilNextFree = 0;
+                _freePullsFullAtUtc = null;
+                await InvokeAsync(StateHasChanged);
+                return;
+            }
+
+            double remainingToFull = (_freePullsFullAtUtc.Value - now).TotalSeconds;
+            int missing = Math.Clamp((int)Math.Ceiling(remainingToFull / GachaService.FreePullRegenSeconds), 1, GachaService.MaxFreePullsStock);
+            _freePullsAvailable = Math.Clamp(GachaService.MaxFreePullsStock - missing, 0, GachaService.MaxFreePullsStock);
+
+            double cycleSec = remainingToFull - ((missing - 1) * GachaService.FreePullRegenSeconds);
+            _secondsUntilNextFree = Math.Clamp((int)Math.Ceiling(cycleSec), 1, GachaService.FreePullRegenSeconds);
+
+            await InvokeAsync(StateHasChanged);
+        }, null, 1000, 1000);
+    }
+
+    private static string FormatTimer(int totalSeconds)
+    {
+        int mins = Math.Max(0, totalSeconds) / 60;
+        int secs = Math.Max(0, totalSeconds) % 60;
+        return $"{mins:D2}:{secs:D2}";
+    }
+
+    private string FormatTotalRemaining()
+    {
+        if (_freePullsFullAtUtc is null) return "0 min";
+        var rem = _freePullsFullAtUtc.Value - DateTimeOffset.UtcNow;
+        if (rem.TotalSeconds <= 0) return "0 min";
+        int totalMins = (int)Math.Ceiling(rem.TotalMinutes);
+        return $"{totalMins} min";
     }
 
     private static string GetNaturalThresholdDescription(CardRarity rarity) => rarity switch
@@ -361,6 +541,32 @@ else
         }
     }
 
+    private async Task PullFreeAsync(int count)
+    {
+        if (_isBusy) return;
+        _isBusy = true;
+        _error = null;
+
+        try
+        {
+            var result = await Gacha.PullFreeAsync(ActivePlayerId, count);
+            if (!result.Success)
+            {
+                _error = result.Message;
+                _isBusy = false;
+                return;
+            }
+
+            SyncFreePullStateFromBanner(result.RemainingFreePulls, result.SecondsUntilNextFreePull, result.FreePullsFullAtUtc);
+            await PrepareRevealFromResultAsync(result);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Erreur lors du tirage gratuit : {ex.Message}";
+            _isBusy = false;
+        }
+    }
+
     private async Task PullAsync(int count)
     {
         if (_isBusy) return;
@@ -377,27 +583,32 @@ else
                 return;
             }
 
-            _banner = _banner! with { PlayerCurrency = result.RemainingCurrency };
-            _drawn = result.Cards;
-            _featured = _drawn
-                .OrderByDescending(c => c.Rarity)
-                .ThenBy(c => c.NaturalOccurrencesCount)
-                .First();
-
-            // Anti-spoiler : on cache le nom et on attend la fin de l'animation Polaroïd avant de révéler la fiche et l'inventaire
-            _isFeaturedRevealed = false;
-            _revealedCount = 0;
-            _showGrid = false;
-            _skip = false;
-            _pullNumber++;
-
-            _pendingUpdatedProfile = await UserService.GetProfileWithInventoryAsync(ActivePlayerId);
+            await PrepareRevealFromResultAsync(result);
         }
         catch (Exception ex)
         {
             _error = $"Erreur lors du tirage : {ex.Message}";
             _isBusy = false;
         }
+    }
+
+    private async Task PrepareRevealFromResultAsync(GachaPullResultDto result)
+    {
+        _banner = _banner! with { PlayerCurrency = result.RemainingCurrency };
+        _drawn = result.Cards;
+        _featured = _drawn
+            .OrderByDescending(c => c.Rarity)
+            .ThenBy(c => c.NaturalOccurrencesCount)
+            .First();
+
+        // Anti-spoiler : on cache le nom et on attend la fin de l'animation Polaroïd avant de révéler la fiche et l'inventaire
+        _isFeaturedRevealed = false;
+        _revealedCount = 0;
+        _showGrid = false;
+        _skip = false;
+        _pullNumber++;
+
+        _pendingUpdatedProfile = await UserService.GetProfileWithInventoryAsync(ActivePlayerId);
     }
 
     private async Task OnFeaturedRevealedAsync()

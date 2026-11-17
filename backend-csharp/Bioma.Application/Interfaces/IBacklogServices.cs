@@ -100,6 +100,9 @@ public interface IGachaService
     // US-27 à US-31 : tirage ×1 ou ×10, débit de la monnaie, ajout à l'inventaire
     Task<GachaPullResultDto> PullAsync(Guid playerId, int count, CancellationToken ct = default);
 
+    // Système de tirage gratuit rechargeable (stock max 10, +1 carte toutes les 10 minutes)
+    Task<GachaPullResultDto> PullFreeAsync(Guid playerId, int count = 1, CancellationToken ct = default);
+
     // Permet d'accorder des crédits d'exploration scientifique à un joueur connecté
     Task<int> GrantExplorationCreditsAsync(Guid playerId, int amount = 500, CancellationToken ct = default);
 }

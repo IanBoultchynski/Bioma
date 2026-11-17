@@ -24,7 +24,9 @@ public record ExternalObservationDto(
     double DropRatePercent = 60.0,
     int BaseAttack = 40,
     int BaseDefense = 35,
-    int BaseSpeed = 45
+    int BaseSpeed = 45,
+    BiomeType Biome = BiomeType.Taiga,
+    string BiomeLabel = "Forêt de Sapins (Taïga)"
 );
 
 /// <summary>
@@ -59,5 +61,7 @@ public record CardDto(
     double DropRatePercent = 60.0,
     int BaseAttack = 40,
     int BaseDefense = 35,
-    int BaseSpeed = 45
+    int BaseSpeed = 45,
+    BiomeType Biome = BiomeType.Taiga,
+    string BiomeLabel = "Forêt de Sapins (Taïga)"
 );

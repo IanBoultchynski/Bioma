@@ -52,7 +52,8 @@ public record PlayerCardDto(
     DateTimeOffset AcquiredAt,
     string RarityLabel = "Commune",
     long NaturalOccurrencesCount = 0,
-    double DropRatePercent = 60.0
+    double DropRatePercent = 60.0,
+    string BiomeLabel = "Forêt de Sapins (Taïga)"
 );
 
 /// <summary>

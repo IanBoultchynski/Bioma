@@ -324,6 +324,7 @@ public static class BiomaDbSeeder
     {
         GachaService.RegisterLiveOccurrenceCount(scientificName, defaultOccurrences);
         var (atk, def, spd, weight) = GachaService.ComputeStatsFromRarity(rarity, scientificName);
+        var biome = Showcase3DService.ResolveBiomeForSpecies(scientificName, commonName);
 
         var card = await db.Cards.FirstOrDefaultAsync(c => c.Id == id || c.ScientificName == scientificName);
         if (card is null)
@@ -341,12 +342,17 @@ public static class BiomaDbSeeder
                 CountryOrPlace = "Observation naturelle",
                 ObservedDate = DateTime.UtcNow.ToString("yyyy-MM-dd"),
                 Rarity = rarity,
+                Biome = biome,
                 AverageWeightKg = weight,
                 BaseAttack = atk,
                 BaseDefense = def,
                 BaseSpeed = spd
             };
             db.Cards.Add(card);
+        }
+        else if (card.Biome != biome)
+        {
+            card.Biome = biome;
         }
         return card;
     }
@@ -417,6 +423,7 @@ public static class BiomaDbSeeder
                 GachaService.RegisterLiveOccurrenceCount(sciName, obsCount);
                 var rarity = GachaService.ComputeRarityFromOccurrences(obsCount);
                 var (atk, def, spd, weight) = GachaService.ComputeStatsFromRarity(rarity, sciName);
+                var biome = Showcase3DService.ResolveBiomeForSpecies(sciName, commonFr);
 
                 var matchingCards = existingCards
                     .Where(c => c.ScientificName.Equals(sciName, StringComparison.OrdinalIgnoreCase))
@@ -437,6 +444,7 @@ public static class BiomaDbSeeder
                         CountryOrPlace = "Référentiel mondial iNaturalist / GBIF",
                         ObservedDate = DateTime.UtcNow.ToString("yyyy-MM-dd"),
                         Rarity = rarity,
+                        Biome = biome,
                         AverageWeightKg = weight,
                         BaseAttack = atk,
                         BaseDefense = def,
@@ -448,13 +456,14 @@ public static class BiomaDbSeeder
                 }
                 else
                 {
-                    // Met à jour les cartes existantes avec la vraie photo de l'espèce et la vraie rareté issue de l'API
+                    // Met à jour les cartes existantes avec la vraie photo de l'espèce, le biome et la vraie rareté issue de l'API
                     foreach (var existing in matchingCards)
                     {
                         existing.CommonName = commonFr;
                         existing.ImageUrl = photoUrl;
                         existing.Family = family;
                         existing.Rarity = rarity;
+                        existing.Biome = biome;
                         existing.BaseAttack = atk;
                         existing.BaseDefense = def;
                         existing.BaseSpeed = spd;

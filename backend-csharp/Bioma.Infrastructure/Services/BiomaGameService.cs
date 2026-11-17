@@ -386,6 +386,11 @@ public class BiomaGameService : IBiomaGameService
         await _gate.WaitAsync();
         try
         {
+            var resolvedBiome = Showcase3DService.ResolveBiomeForSpecies(
+                taxon.ScientificName,
+                observation.CommonName,
+                observation.Latitude);
+
             var entity = new SpeciesCard
             {
                 CommonName = !string.IsNullOrWhiteSpace(observation.CommonName) && !observation.CommonName.Equals(observation.ScientificName, StringComparison.OrdinalIgnoreCase)
@@ -402,6 +407,7 @@ public class BiomaGameService : IBiomaGameService
                 CountryOrPlace = observation.CountryOrPlace,
                 ObservedDate = observation.ObservedDate,
                 Rarity = rarity,
+                Biome = resolvedBiome,
                 BaseAttack = atk,
                 BaseDefense = def,
                 BaseSpeed = spd,
@@ -486,6 +492,8 @@ public class BiomaGameService : IBiomaGameService
             ? $"{card.Latitude.Value:F2}°, {card.Longitude.Value:F2}°"
             : "Référentiel API";
 
+        var biome = Showcase3DService.ResolveBiomeForSpecies(card.ScientificName, card.CommonName, card.Latitude);
+
         return new CardDto(
             card.Id,
             card.CommonName,
@@ -502,7 +510,9 @@ public class BiomaGameService : IBiomaGameService
             GachaService.DropRateForRarity(card.Rarity),
             card.BaseAttack,
             card.BaseDefense,
-            card.BaseSpeed
+            card.BaseSpeed,
+            biome,
+            Showcase3DService.GetBiomeLabel(biome)
         );
     }
 

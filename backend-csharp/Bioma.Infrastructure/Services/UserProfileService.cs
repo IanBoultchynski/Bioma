@@ -797,6 +797,7 @@ public class UserProfileService : IUserProfileService
         var species = pc.SpeciesCard;
         var rarityEnum = species?.Rarity ?? CardRarity.Commune;
         string sciName = species?.ScientificName ?? "Species incognita";
+        var biomeEnum = Showcase3DService.ResolveBiomeForSpecies(sciName, species?.CommonName, species?.Latitude);
         return new PlayerCardDto(
             pc.Id,
             pc.SpeciesCardId,
@@ -804,7 +805,7 @@ public class UserProfileService : IUserProfileService
             sciName,
             species?.Family ?? "Animalia",
             rarityEnum.ToString(),
-            (species?.Biome ?? BiomeType.ForetTemperee).ToString(),
+            biomeEnum.ToString(),
             species?.ImageUrl ?? string.Empty,
             pc.CustomNickname,
             pc.Level,
@@ -821,7 +822,8 @@ public class UserProfileService : IUserProfileService
             pc.AcquiredAt,
             GachaService.RarityLabel(rarityEnum),
             GachaService.GetEstimatedNaturalOccurrences(sciName, rarityEnum),
-            GachaService.DropRateForRarity(rarityEnum)
+            GachaService.DropRateForRarity(rarityEnum),
+            Showcase3DService.GetBiomeLabel(biomeEnum)
         );
     }
 

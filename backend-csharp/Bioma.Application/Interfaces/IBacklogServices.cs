@@ -176,7 +176,27 @@ public interface IBattleService
 /// </summary>
 public interface IShowcase3DService
 {
-    // US-61 : Accès à son terrarium / musée virtuel 3D
-    // US-62 : Positionnement et exposition des cartes sur des socles 3D
-    // US-63 : Visite de la Vitrine 3D d'autres joueurs
+    /// <summary>US-61 : Liste les biomes créés par le joueur (vide au départ) ainsi que les biomes disponibles à créer.</summary>
+    Task<PlayerBiomesOverviewDto> GetPlayerBiomesOverviewAsync(Guid playerId, CancellationToken ct = default);
+
+    /// <summary>US-61 : Crée un nouveau biome dans la Vitrine 3D du joueur (uniquement parmi les biomes disponibles).</summary>
+    Task<ShowcaseActionResultDto> CreateBiomeAsync(Guid playerId, BiomeType biome, CancellationToken ct = default);
+
+    /// <summary>US-61 : Supprime un biome créé de la Vitrine 3D du joueur.</summary>
+    Task<ShowcaseActionResultDto> DeleteBiomeAsync(Guid playerId, BiomeType biome, CancellationToken ct = default);
+
+    /// <summary>US-61 &amp; US-63 : Charge un biome créé dans la Vitrine 3D d'un joueur, ses socles 3D et les cartes compatibles avec ce biome.</summary>
+    Task<ShowcaseViewDto?> GetPlayerShowcaseAsync(Guid playerId, BiomeType? selectedBiome = null, CancellationToken ct = default);
+
+    /// <summary>US-62 : Expose une carte du joueur sur un socle 3D du biome actif (uniquement si l'animal est associé à ce biome).</summary>
+    Task<ShowcaseActionResultDto> PlaceCardOnPedestalAsync(Guid playerId, BiomeType biome, int localSlotIndex, Guid playerCardId, CancellationToken ct = default);
+
+    /// <summary>US-62 : Retire la carte exposée sur un socle 3D.</summary>
+    Task<ShowcaseActionResultDto> RemoveCardFromPedestalAsync(Guid playerId, BiomeType biome, int localSlotIndex, CancellationToken ct = default);
+
+    /// <summary>US-62 : Modifie la position 3D (X, Y, Z) d'un socle directement sur le terrain du biome.</summary>
+    Task<ShowcaseActionResultDto> UpdatePedestalPositionAsync(Guid playerId, BiomeType biome, int localSlotIndex, double posX, double posY, double posZ, CancellationToken ct = default);
+
+    /// <summary>US-62 : Réinitialise les coordonnées des socles 3D du biome à leurs emplacements de clairière par défaut.</summary>
+    Task<ShowcaseActionResultDto> ResetPedestalPositionsAsync(Guid playerId, BiomeType biome, CancellationToken ct = default);
 }

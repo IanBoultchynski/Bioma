@@ -1,0 +1,714 @@
+@page "/vitrine"
+@page "/vitrine-3d"
+@implements IAsyncDisposable
+@using Bioma.Application.DTOs
+@using Bioma.Application.Interfaces
+@using Bioma.Domain.Enums
+@inject IShowcase3DService ShowcaseService
+@inject IUserProfileService UserService
+@inject UserSessionState Session
+@inject IJSRuntime JS
+
+@if (_showcase is null)
+{
+    <!-- PAGE 1 : LISTE DES BIOMES CRÉÉS PAR LE JOUEUR -->
+    <div class="bioma-page-header" style="margin-bottom: 1.25rem;">
+        <div>
+            <h1 class="bioma-title">Ma Vitrine 3D</h1>
+            <p class="bioma-subtitle">
+                Votre espace personnel de contemplation : créez vos biomes et exposez-y librement vos cartes sur des socles 3D.
+            </p>
+        </div>
+
+        @if (_overview is not null && _overview.AvailableBiomesToCreate.Count > 0)
+        {
+            <button type="button"
+                    class="btn-sand"
+                    style="width: auto; padding: 0.6rem 1.2rem;"
+                    @onclick="() => _showCreatePanel = !_showCreatePanel">
+                <span>@(_showCreatePanel ? "Fermer" : "+ Créer un biome")</span>
+            </button>
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_feedbackMessage))
+    {
+        <div style="padding: 0.65rem 1rem; margin-bottom: 1.15rem; border-radius: 8px; background: @(_feedbackSuccess ? "rgba(46, 158, 91, 0.22)" : "rgba(220, 75, 75, 0.22)"); border: 1px solid @(_feedbackSuccess ? "rgba(72, 187, 120, 0.55)" : "rgba(239, 68, 68, 0.55)"); font-size: 0.82rem; color: var(--figma-text); display: flex; justify-content: space-between; align-items: center;">
+            <span>@_feedbackMessage</span>
+            <button type="button" @onclick="() => _feedbackMessage = null" style="background: none; border: none; color: var(--figma-text-soft); cursor: pointer; font-size: 0.76rem;">Fermer</button>
+        </div>
+    }
+
+    @if (_overview is not null && _showCreatePanel)
+    {
+        <section class="bioma-panel" style="margin-bottom: 1.5rem; border-color: rgba(222, 184, 97, 0.55);">
+            <div class="figma-section-header" style="margin-bottom: 0.85rem;">
+                <h2 class="figma-section-title" style="color: var(--figma-gold);">Choisir un biome à créer</h2>
+                <span style="font-size: 0.74rem; color: var(--figma-text-soft);">@_overview.AvailableBiomesToCreate.Count biome(s) disponible(s)</span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(265px, 1fr)); gap: 1rem;">
+                @foreach (var avail in _overview.AvailableBiomesToCreate)
+                {
+                    <div style="border-radius: 10px; overflow: hidden; background: rgba(15, 34, 23, 0.86); border: 1px solid var(--figma-border-strong); display: flex; flex-direction: column; justify-content: space-between;">
+                        <div>
+                            <div style="position: relative; height: 145px; background: #0c1b12; overflow: hidden;">
+                                @if (!string.IsNullOrEmpty(avail.PreviewImageUrl))
+                                {
+                                    <img src="@avail.PreviewImageUrl" alt="@avail.BiomeLabel" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
+                                }
+                                <div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(10, 22, 15, 0.9) 0%, rgba(10, 22, 15, 0.05) 60%);"></div>
+                                <div style="position: absolute; bottom: 10px; left: 12px; right: 12px; display: flex; justify-content: space-between; align-items: center;">
+                                    <strong style="font-family: var(--font-serif); font-size: 1.1rem; color: #F5F1E6;">@avail.BiomeLabel</strong>
+                                    <span style="font-size: 0.64rem; padding: 2px 8px; border-radius: 999px; background: rgba(74, 222, 128, 0.22); border: 1px solid rgba(74, 222, 128, 0.45); color: #86EFAC; font-weight: 700;">
+                                        Disponible
+                                    </span>
+                                </div>
+                            </div>
+
+                            <p style="padding: 0.75rem 0.9rem 0.25rem; font-size: 0.76rem; color: var(--figma-text-soft); margin: 0; line-height: 1.4;">
+                                @avail.EcosystemDescription
+                            </p>
+                        </div>
+
+                        <div style="padding: 0.65rem 0.9rem 0.9rem;">
+                            <button type="button"
+                                    class="btn-sand"
+                                    style="width: 100%; padding: 0.5rem;"
+                                    @onclick="() => CreateBiomeAndOpenAsync(avail.Biome)">
+                                <span>Créer ce biome</span>
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+
+    @if (_overview is not null)
+    {
+        @if (_overview.CreatedBiomes.Count == 0 && !_showCreatePanel)
+        {
+            <section class="bioma-panel" style="text-align: center; padding: 3.5rem 1.5rem;">
+                <h2 style="font-family: var(--font-serif); font-size: 1.45rem; color: var(--figma-cream); margin-bottom: 0.55rem;">
+                    Aucun biome créé pour le moment
+                </h2>
+                <p style="font-size: 0.84rem; color: var(--figma-text-soft); max-width: 480px; margin: 0 auto 1.4rem; line-height: 1.5;">
+                    Votre terrarium est prêt. Créez votre premier biome pour l'explorer en 3D et y exposer vos cartes.
+                </p>
+                @if (_overview.AvailableBiomesToCreate.Count > 0)
+                {
+                    <button type="button"
+                            class="btn-sand"
+                            style="display: inline-flex; width: auto; padding: 0.65rem 1.4rem;"
+                            @onclick="() => _showCreatePanel = true">
+                        <span>+ Créer mon premier biome</span>
+                    </button>
+                }
+            </section>
+        }
+        else if (_overview.CreatedBiomes.Count > 0)
+        {
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 1.15rem;">
+                @foreach (var biome in _overview.CreatedBiomes)
+                {
+                    <section class="bioma-panel" style="padding: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between;">
+                        <div>
+                            <div style="position: relative; height: 165px; background: #0c1b12; overflow: hidden;">
+                                @if (!string.IsNullOrEmpty(biome.PreviewImageUrl))
+                                {
+                                    <img src="@biome.PreviewImageUrl" alt="@biome.BiomeLabel" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
+                                }
+                                <div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(10, 22, 15, 0.92) 0%, rgba(10, 22, 15, 0.08) 65%);"></div>
+                                <div style="position: absolute; bottom: 10px; left: 14px; right: 14px; display: flex; justify-content: space-between; align-items: center;">
+                                    <h2 style="font-family: var(--font-serif); font-size: 1.25rem; color: #F5F1E6; margin: 0;">
+                                        @biome.BiomeLabel
+                                    </h2>
+                                    <span style="font-size: 0.69rem; padding: 2px 9px; border-radius: 999px; background: rgba(222, 184, 97, 0.22); border: 1px solid rgba(222, 184, 97, 0.45); color: var(--figma-gold); font-weight: 700;">
+                                        @biome.DisplayedCardsCount / @biome.TotalPedestalsCount socles
+                                    </span>
+                                </div>
+                            </div>
+
+                            <p style="padding: 0.85rem 1rem 0.25rem; font-size: 0.78rem; color: var(--figma-text-soft); margin: 0; line-height: 1.45;">
+                                @biome.EcosystemDescription
+                            </p>
+                        </div>
+
+                        <div style="padding: 0.8rem 1rem 1rem; display: flex; gap: 0.55rem;">
+                            <button type="button"
+                                    class="btn-sand"
+                                    style="flex: 1; padding: 0.55rem;"
+                                    @onclick="() => OpenBiome3DAsync(biome.Biome)">
+                                <span>Ouvrir en 3D</span>
+                            </button>
+                            <button type="button"
+                                    class="btn-outline"
+                                    style="width: auto; padding: 0.55rem 0.85rem; font-size: 0.75rem; color: #FCA5A5; border-color: rgba(239, 68, 68, 0.4);"
+                                    @onclick="() => DeleteBiomeAsync(biome.Biome)">
+                                <span>Supprimer</span>
+                            </button>
+                        </div>
+                    </section>
+                }
+            </div>
+        }
+    }
+}
+else
+{
+    <!-- PAGE 2 : VUE 3D SIMPLIFIÉE DU BIOME CHOISI -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
+        <div style="display: flex; align-items: center; gap: 0.85rem; flex-wrap: wrap;">
+            <button type="button"
+                    class="btn-outline"
+                    style="width: auto; padding: 0.45rem 0.9rem; font-size: 0.78rem;"
+                    @onclick="BackToBiomesListAsync">
+                <span>← Mes biomes</span>
+            </button>
+
+            <div style="display: flex; align-items: center; gap: 0.65rem;">
+                @if (!string.IsNullOrEmpty(_showcase.ActivePreviewImageUrl))
+                {
+                    <img src="@_showcase.ActivePreviewImageUrl"
+                         alt="@_showcase.ActiveBiomeLabel"
+                         style="width: 58px; height: 36px; border-radius: 6px; object-fit: cover; border: 1.5px solid var(--figma-gold);" />
+                }
+                <h1 class="bioma-title" style="font-size: 1.55rem; margin: 0;">@_showcase.ActiveBiomeLabel</h1>
+            </div>
+        </div>
+
+        @if (_showcase.CreatedBiomes.Count > 1)
+        {
+            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+                @foreach (var cb in _showcase.CreatedBiomes)
+                {
+                    <button type="button"
+                            class="pill-tab @(cb.Biome == _showcase.ActiveBiome ? "active" : "")"
+                            style="padding: 0.3rem 0.75rem; font-size: 0.74rem;"
+                            @onclick="() => OpenBiome3DAsync(cb.Biome)">
+                        @cb.BiomeLabel
+                    </button>
+                }
+            </div>
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_feedbackMessage))
+    {
+        <div style="padding: 0.6rem 1rem; margin-bottom: 1rem; border-radius: 8px; background: @(_feedbackSuccess ? "rgba(46, 158, 91, 0.22)" : "rgba(220, 75, 75, 0.22)"); border: 1px solid @(_feedbackSuccess ? "rgba(72, 187, 120, 0.55)" : "rgba(239, 68, 68, 0.55)"); font-size: 0.8rem; color: var(--figma-text); display: flex; justify-content: space-between; align-items: center;">
+            <span>@_feedbackMessage</span>
+            <button type="button" @onclick="() => _feedbackMessage = null" style="background: none; border: none; color: var(--figma-text-soft); cursor: pointer; font-size: 0.75rem;">Fermer</button>
+        </div>
+    }
+
+    <div class="refuge-grid" style="grid-template-columns: 1.45fr 1fr; gap: 1.25rem; align-items: start;">
+        <!-- COLONNE GAUCHE : VIEWPORT 3D + 5 SOCLES -->
+        <section class="bioma-panel" style="padding: 0.95rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.65rem;">
+                <span style="font-size: 0.78rem; color: var(--figma-gold); font-weight: 700;">
+                    Socle #@(_selectedSlotIndex + 1) sélectionné
+                </span>
+
+                <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+                    <button type="button" class="pill-tab" style="padding: 0.25rem 0.65rem; font-size: 0.71rem;" @onclick='() => SetCameraPresetAsync("reset")'>
+                        Reset vue
+                    </button>
+                    <button type="button"
+                            class="pill-tab @(_autoRotate ? "active" : "")"
+                            style="padding: 0.25rem 0.65rem; font-size: 0.71rem;"
+                            @onclick="ToggleAutoRotateAsync">
+                        @(_autoRotate ? "Rotation : ON" : "Rotation Auto")
+                    </button>
+                    <button type="button"
+                            class="pill-tab @(_atmosphere == "night" ? "active" : "")"
+                            style="padding: 0.25rem 0.65rem; font-size: 0.71rem;"
+                            @onclick="ToggleDayNightAsync">
+                        @(_atmosphere == "night" ? "Mode Jour" : "Mode Nuit")
+                    </button>
+                </div>
+            </div>
+
+            <!-- Scène WebGL 3D -->
+            <div style="position: relative; width: 100%; height: 495px; border-radius: 10px; overflow: hidden; background: radial-gradient(circle at 50% 35%, #163323 0%, #09150E 100%); border: 1px solid var(--figma-border-strong);">
+                <canvas id="bioma-vitrine-canvas"
+                        style="width: 100%; height: 100%; display: block; cursor: @(_placementMode ? "crosshair" : "grab");">
+                </canvas>
+
+                <div style="position: absolute; bottom: 10px; left: 10px; background: rgba(10, 22, 15, 0.82); border: 1px solid var(--figma-border-strong); border-radius: 7px; padding: 0.35rem 0.7rem; font-size: 0.69rem; color: var(--figma-text-soft); pointer-events: none;">
+                    @if (_placementMode)
+                    {
+                        <strong style="color: var(--figma-gold);">Cliquez sur le terrain 3D pour placer le Socle #@(_selectedSlotIndex + 1)</strong>
+                    }
+                    else
+                    {
+                        <span>Glisser : tourner 360° · Molette : zoomer · Clic socle : sélectionner</span>
+                    }
+                </div>
+            </div>
+
+            <!-- BARRE DES 5 SOCLES 3D -->
+            <div style="margin-top: 0.85rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.4rem;">
+                    <span style="font-size: 0.76rem; font-weight: 700; color: var(--figma-cream);">
+                        Mes 5 socles 3D
+                    </span>
+                    <button type="button"
+                            class="@(_placementMode ? "btn-sand" : "btn-outline")"
+                            style="width: auto; padding: 0.28rem 0.75rem; font-size: 0.71rem;"
+                            @onclick="TogglePlacementModeAsync">
+                        <span>@(_placementMode ? "Terminer le déplacement" : $"Déplacer le Socle #{_selectedSlotIndex + 1}")</span>
+                    </button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem;">
+                    @foreach (var ped in _showcase.Pedestals)
+                    {
+                        bool isSel = ped.LocalSlotIndex == _selectedSlotIndex;
+                        var card = ped.DisplayedCard;
+                        <div @onclick="() => SelectPedestalFromUiAsync(ped.LocalSlotIndex)"
+                             style="padding: 0.45rem 0.55rem; border-radius: 8px; cursor: pointer; background: @(isSel ? "rgba(46, 125, 75, 0.38)" : "rgba(13, 28, 19, 0.78)"); border: 1.5px solid @(isSel ? "var(--figma-gold)" : "var(--figma-border-strong)"); display: flex; flex-direction: column; justify-content: space-between; gap: 0.3rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: 700; font-size: 0.71rem; color: @(isSel ? "var(--figma-gold)" : "var(--figma-cream)");">
+                                    Socle #@(ped.LocalSlotIndex + 1)
+                                </span>
+                                @if (card is not null)
+                                {
+                                    <button type="button"
+                                            title="Retirer du socle"
+                                            @onclick:stopPropagation="true"
+                                            @onclick="() => RemoveCardFromSlotAsync(ped.LocalSlotIndex)"
+                                            style="background: none; border: none; color: #FCA5A5; font-size: 0.85rem; line-height: 1; cursor: pointer; padding: 0 2px;">
+                                        ×
+                                    </button>
+                                }
+                            </div>
+
+                            @if (card is not null)
+                            {
+                                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                    <img src="@card.ImageUrl" alt="@card.CommonName" style="width: 30px; height: 30px; border-radius: 5px; object-fit: cover; border: 1px solid var(--figma-gold);" />
+                                    <div style="font-weight: 700; font-size: 0.68rem; color: var(--figma-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                        @card.CommonName
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <div style="font-size: 0.66rem; color: var(--figma-text-muted); padding: 0.35rem 0; text-align: center; border: 1px dashed var(--figma-border); border-radius: 5px;">
+                                    Libre
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </section>
+
+        <!-- COLONNE DROITE : TOUTES LES CARTES DU JOUEUR (LIBREMENT EXPOSABLES) -->
+        <section class="bioma-panel" style="padding: 0.95rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem;">
+                <div>
+                    <h2 class="figma-section-title" style="margin-bottom: 0.15rem;">
+                        Mes cartes (@FilteredInventoryCards.Count())
+                    </h2>
+                    <div style="font-size: 0.72rem; color: var(--figma-text-soft);">
+                        Exposez librement n'importe quelle carte sur le <strong>Socle #@(_selectedSlotIndex + 1)</strong>.
+                    </div>
+                </div>
+
+                <input type="text"
+                       class="bioma-input"
+                       style="max-width: 175px; padding: 0.35rem 0.65rem; font-size: 0.74rem;"
+                       @bind="_cardSearch"
+                       @bind:event="oninput"
+                       placeholder="Rechercher..." />
+            </div>
+
+            @if (!_showcase.InventoryCards.Any())
+            {
+                <div class="bioma-panel-dark" style="text-align: center; padding: 1.75rem 1.25rem;">
+                    <div style="font-family: var(--font-serif); font-size: 1rem; color: var(--figma-cream); margin-bottom: 0.35rem;">
+                        Aucune carte dans votre inventaire
+                    </div>
+                    <p style="font-size: 0.75rem; color: var(--figma-text-muted); margin-bottom: 0.9rem;">
+                        Obtenez des espèces via le Tirage Gacha ou l'Explorateur pour les exposer ici.
+                    </p>
+                    <a href="/tirage" class="btn-sand" style="display: inline-flex; width: auto; padding: 0.45rem 0.95rem; font-size: 0.75rem;">
+                        <span>Ouvrir le Tirage</span>
+                    </a>
+                </div>
+            }
+            else
+            {
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(162px, 1fr)); gap: 0.8rem; max-height: 550px; overflow-y: auto; padding-right: 0.2rem;">
+                    @foreach (var card in FilteredInventoryCards)
+                    {
+                        string rCss = PolaroidPrint.RarityCssFromString(card.Rarity);
+                        var occupiedPedestal = _showcase.Pedestals.FirstOrDefault(p => p.DisplayedCard?.Id == card.Id);
+                        bool isOnCurrentSlot = occupiedPedestal?.LocalSlotIndex == _selectedSlotIndex;
+
+                        <div class="polaroid-card rarity-border-@rCss @(isOnCurrentSlot ? "selected" : "")"
+                             style="cursor: default; display: flex; flex-direction: column; justify-content: space-between; padding: 6px 6px 8px;">
+                            <div>
+                                <div class="polaroid-photo-wrap" style="height: 110px; margin-bottom: 5px;">
+                                    <img class="polaroid-photo" src="@card.ImageUrl" alt="@card.CommonName" loading="lazy" />
+                                    <span class="rarity-badge @rCss" style="position: absolute; top: 5px; right: 5px; font-size: 0.52rem; padding: 2px 6px;">
+                                        @card.RarityLabel
+                                    </span>
+                                    @if (occupiedPedestal is not null)
+                                    {
+                                        <span style="position: absolute; bottom: 5px; left: 5px; background: rgba(222, 184, 97, 0.95); color: #13261B; font-size: 0.56rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;">
+                                            Socle #@(occupiedPedestal.LocalSlotIndex + 1)
+                                        </span>
+                                    }
+                                </div>
+
+                                <div class="polaroid-name" style="font-size: 0.79rem;" title="@card.CommonName">@card.CommonName</div>
+                                <div class="polaroid-scientific" style="font-size: 0.62rem; margin-bottom: 6px;" title="@card.ScientificName">@card.ScientificName</div>
+                            </div>
+
+                            <button type="button"
+                                    @onclick="() => ToggleCardOnSelectedSlotAsync(card.Id, isOnCurrentSlot)"
+                                    style="width: 100%; padding: 0.38rem 0.5rem; border-radius: 5px; border: none; font-size: 0.7rem; font-weight: 700; cursor: pointer; background: @(isOnCurrentSlot ? "#1E3B2B" : "#DEB861"); color: @(isOnCurrentSlot ? "#F5F1E6" : "#15291E");">
+                                @(isOnCurrentSlot ? "Retirer" : $"Exposer Socle #{_selectedSlotIndex + 1}")
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+    </div>
+}
+
+@code {
+    private static readonly Guid DefaultDemoPlayerId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+
+    private PlayerBiomesOverviewDto? _overview;
+    private ShowcaseViewDto? _showcase;
+    private DotNetObjectReference<Vitrine3D>? _dotNetRef;
+
+    private bool _showCreatePanel;
+    private int _selectedSlotIndex;
+    private bool _placementMode;
+    private bool _autoRotate;
+    private string _atmosphere = "day";
+    private string _cardSearch = string.Empty;
+    private string? _feedbackMessage;
+    private bool _feedbackSuccess = true;
+    private bool _jsInitialized;
+    private bool _needsJsInit;
+
+    private IEnumerable<PlayerCardDto> FilteredInventoryCards =>
+        _showcase is null
+            ? Enumerable.Empty<PlayerCardDto>()
+            : string.IsNullOrWhiteSpace(_cardSearch)
+                ? _showcase.InventoryCards
+                : _showcase.InventoryCards.Where(c =>
+                    c.CommonName.Contains(_cardSearch, StringComparison.OrdinalIgnoreCase) ||
+                    c.ScientificName.Contains(_cardSearch, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        Session.OnChange += HandleSessionChanged;
+        await LoadOverviewAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_showcase is not null && _needsJsInit)
+        {
+            _needsJsInit = false;
+            _dotNetRef ??= DotNetObjectReference.Create(this);
+            try
+            {
+                bool ok = await JS.InvokeAsync<bool>(
+                    "BiomaVitrine3D.init",
+                    "bioma-vitrine-canvas",
+                    "bioma-vitrine-overlay",
+                    _dotNetRef,
+                    BuildJsSceneState());
+                _jsInitialized = ok;
+            }
+            catch
+            {
+                _jsInitialized = false;
+            }
+        }
+    }
+
+    private void HandleSessionChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            if (_showcase is not null)
+            {
+                await DisposeJsCanvasAsync();
+                _showcase = null;
+            }
+            await LoadOverviewAsync();
+            StateHasChanged();
+        });
+    }
+
+    private async Task<Guid> ResolvePlayerIdAsync()
+    {
+        if (Session.CurrentProfile is not null)
+        {
+            return Session.CurrentProfile.Id;
+        }
+
+        var profile = await UserService.GetProfileWithInventoryAsync(DefaultDemoPlayerId);
+        if (profile is not null)
+        {
+            Session.SetSession(profile);
+            return profile.Id;
+        }
+
+        return DefaultDemoPlayerId;
+    }
+
+    private async Task LoadOverviewAsync()
+    {
+        var playerId = await ResolvePlayerIdAsync();
+        _overview = await ShowcaseService.GetPlayerBiomesOverviewAsync(playerId);
+    }
+
+    private async Task CreateBiomeAndOpenAsync(BiomeType biome)
+    {
+        var playerId = await ResolvePlayerIdAsync();
+        var res = await ShowcaseService.CreateBiomeAsync(playerId, biome);
+        _feedbackSuccess = res.Success;
+        _feedbackMessage = res.Message;
+
+        if (res.Success && res.Showcase is not null)
+        {
+            _showCreatePanel = false;
+            _selectedSlotIndex = 0;
+            _placementMode = false;
+            _showcase = res.Showcase;
+            await LoadOverviewAsync();
+            _needsJsInit = true;
+        }
+    }
+
+    private async Task DeleteBiomeAsync(BiomeType biome)
+    {
+        var playerId = await ResolvePlayerIdAsync();
+        var res = await ShowcaseService.DeleteBiomeAsync(playerId, biome);
+        _feedbackSuccess = res.Success;
+        _feedbackMessage = res.Message;
+        await LoadOverviewAsync();
+    }
+
+    private async Task OpenBiome3DAsync(BiomeType biome)
+    {
+        var playerId = await ResolvePlayerIdAsync();
+        var view = await ShowcaseService.GetPlayerShowcaseAsync(playerId, biome);
+        if (view is null) return;
+
+        bool wasOpen = _showcase is not null && _jsInitialized;
+        _selectedSlotIndex = 0;
+        _placementMode = false;
+        _showcase = view;
+
+        if (wasOpen)
+        {
+            await SyncSceneToJsAsync();
+        }
+        else
+        {
+            _needsJsInit = true;
+        }
+    }
+
+    private async Task BackToBiomesListAsync()
+    {
+        await DisposeJsCanvasAsync();
+        _showcase = null;
+        _placementMode = false;
+        _autoRotate = false;
+        _feedbackMessage = null;
+        await LoadOverviewAsync();
+    }
+
+    private object BuildJsSceneState() => new
+    {
+        glbUrl = _showcase?.IsActiveBiomeAvailable == true ? _showcase.ActiveGlbModelUrl : null,
+        selectedSlotIndex = _selectedSlotIndex,
+        placementMode = _placementMode,
+        pedestals = _showcase?.Pedestals.Select(p => new
+        {
+            localSlotIndex = p.LocalSlotIndex,
+            slotLabel = p.SlotLabel,
+            positionX = p.PositionX,
+            positionY = p.PositionY,
+            positionZ = p.PositionZ,
+            displayedCard = p.DisplayedCard is null ? null : new
+            {
+                id = p.DisplayedCard.Id,
+                commonName = p.DisplayedCard.CommonName,
+                scientificName = p.DisplayedCard.ScientificName,
+                rarity = p.DisplayedCard.Rarity,
+                rarityLabel = p.DisplayedCard.RarityLabel,
+                biomeLabel = p.DisplayedCard.BiomeLabel,
+                imageUrl = p.DisplayedCard.ImageUrl,
+                currentAttack = p.DisplayedCard.CurrentAttack,
+                currentDefense = p.DisplayedCard.CurrentDefense,
+                currentSpeed = p.DisplayedCard.CurrentSpeed,
+                level = p.DisplayedCard.Level,
+                stage = p.DisplayedCard.Stage
+            }
+        }).ToList()
+    };
+
+    private async Task SyncSceneToJsAsync()
+    {
+        if (!_jsInitialized || _showcase is null) return;
+        try
+        {
+            await JS.InvokeVoidAsync("BiomaVitrine3D.updateScene", "bioma-vitrine-canvas", BuildJsSceneState());
+        }
+        catch { }
+    }
+
+    private async Task SelectPedestalFromUiAsync(int slotIndex)
+    {
+        _selectedSlotIndex = slotIndex;
+        if (_jsInitialized)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("BiomaVitrine3D.setOptions", "bioma-vitrine-canvas", new { selectedSlotIndex = slotIndex });
+            }
+            catch { }
+        }
+    }
+
+    private async Task ToggleCardOnSelectedSlotAsync(Guid playerCardId, bool currentlyOnSlot)
+    {
+        if (_showcase is null) return;
+        var res = currentlyOnSlot
+            ? await ShowcaseService.RemoveCardFromPedestalAsync(_showcase.OwnerPlayerId, _showcase.ActiveBiome, _selectedSlotIndex)
+            : await ShowcaseService.PlaceCardOnPedestalAsync(_showcase.OwnerPlayerId, _showcase.ActiveBiome, _selectedSlotIndex, playerCardId);
+
+        _feedbackSuccess = res.Success;
+        _feedbackMessage = res.Message;
+        if (res.Showcase is not null)
+        {
+            _showcase = res.Showcase;
+            await SyncSceneToJsAsync();
+        }
+    }
+
+    private async Task RemoveCardFromSlotAsync(int slotIndex)
+    {
+        if (_showcase is null) return;
+        var res = await ShowcaseService.RemoveCardFromPedestalAsync(_showcase.OwnerPlayerId, _showcase.ActiveBiome, slotIndex);
+        _feedbackSuccess = res.Success;
+        _feedbackMessage = res.Message;
+        if (res.Showcase is not null)
+        {
+            _showcase = res.Showcase;
+            await SyncSceneToJsAsync();
+        }
+    }
+
+    private async Task TogglePlacementModeAsync()
+    {
+        _placementMode = !_placementMode;
+        if (_jsInitialized)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("BiomaVitrine3D.setOptions", "bioma-vitrine-canvas", new { placementMode = _placementMode });
+            }
+            catch { }
+        }
+    }
+
+    private async Task SetCameraPresetAsync(string preset)
+    {
+        if (!_jsInitialized) return;
+        try
+        {
+            await JS.InvokeVoidAsync("BiomaVitrine3D.setCameraView", "bioma-vitrine-canvas", preset, _selectedSlotIndex);
+        }
+        catch { }
+    }
+
+    private async Task ToggleAutoRotateAsync()
+    {
+        _autoRotate = !_autoRotate;
+        if (_jsInitialized)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("BiomaVitrine3D.setOptions", "bioma-vitrine-canvas", new { autoRotate = _autoRotate });
+            }
+            catch { }
+        }
+    }
+
+    private async Task ToggleDayNightAsync()
+    {
+        _atmosphere = _atmosphere == "night" ? "day" : "night";
+        if (_jsInitialized)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("BiomaVitrine3D.setOptions", "bioma-vitrine-canvas", new { atmosphere = _atmosphere });
+            }
+            catch { }
+        }
+    }
+
+    [JSInvokable]
+    public void OnPedestalSelectedFrom3D(int slotIndex)
+    {
+        _selectedSlotIndex = Math.Clamp(slotIndex, 0, 4);
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public async Task OnTerrainClickedFrom3D(double x, double y, double z)
+    {
+        if (_showcase is null) return;
+        var res = await ShowcaseService.UpdatePedestalPositionAsync(
+            _showcase.OwnerPlayerId,
+            _showcase.ActiveBiome,
+            _selectedSlotIndex,
+            x,
+            y,
+            z);
+
+        _feedbackSuccess = res.Success;
+        _feedbackMessage = res.Message;
+        if (res.Showcase is not null)
+        {
+            _showcase = res.Showcase;
+            await SyncSceneToJsAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async Task DisposeJsCanvasAsync()
+    {
+        if (_jsInitialized)
+        {
+            _jsInitialized = false;
+            try
+            {
+                await JS.InvokeVoidAsync("BiomaVitrine3D.dispose", "bioma-vitrine-canvas");
+            }
+            catch { }
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Session.OnChange -= HandleSessionChanged;
+        await DisposeJsCanvasAsync();
+        _dotNetRef?.Dispose();
+    }
+}

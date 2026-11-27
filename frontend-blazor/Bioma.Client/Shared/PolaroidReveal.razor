@@ -1,4 +1,5 @@
 @using Bioma.Application.DTOs
+@using Bioma.Domain.Enums
 
 @*
     Animation de révélation basée sur le rendu de Polaroîde.blend :
@@ -27,7 +28,7 @@
 
     @if (_printVisible)
     {
-        <PolaroidPrint Card="Card" Developed="_developed" />
+        <PolaroidPrint Card="Card" Developed="_developed" ShowStamp="true" StampInstant="_skipped" />
     }
 </div>
 
@@ -50,9 +51,14 @@
     /// <summary>Appelé quand la carte est entièrement révélée.</summary>
     [Parameter]
     public EventCallback OnRevealed { get; set; }
-        /// <summary>Durée de la vidéo (81 images à 24 i/s ≈ 3,4 s).</summary>
+
+    /// <summary>Durée de la vidéo (81 images à 24 i/s ≈ 3,4 s).</summary>
     [Parameter]
     public int VideoDurationMs { get; set; } = 3400;
+
+    /// <summary>Temps en plus pour laisser le tampon tomber sur les cartes légendaires.</summary>
+    [Parameter]
+    public int LegendaryStampExtraMs { get; set; } = 900;
 
     protected override void OnAfterRender(bool firstRender)
     {
@@ -89,7 +95,10 @@
         _developed = true;
         StateHasChanged();
 
-        await Task.Delay(DevelopDurationMs);
+                int delay = Card.Rarity == CardRarity.Legendaire
+            ? DevelopDurationMs + LegendaryStampExtraMs
+            : DevelopDurationMs;
+        await Task.Delay(delay);
         await FinishAsync();
     }
 

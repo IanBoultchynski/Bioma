@@ -731,3 +731,83 @@
     from { box-shadow: 0 0 16px rgba(239, 68, 68, 0.35); }
     to   { box-shadow: 0 0 36px rgba(239, 68, 68, 0.75); }
 }
+
+/* ===== Tampon « Espèce menacée » (cartes légendaires) ===== */
+.legendary-stamp {
+    position: absolute;
+    right: 5%;
+    bottom: 15%;
+    z-index: 3;
+    width: 38cqw;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    border: 1.6cqw solid #B91C1C;
+    box-shadow: inset 0 0 0 0.8cqw rgba(247, 245, 239, 0.9), inset 0 0 0 1.4cqw #B91C1C;
+    background: rgba(247, 245, 239, 0.35);
+    color: #B91C1C;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6cqw;
+    font-family: var(--font-sans);
+    text-align: center;
+    line-height: 1;
+    pointer-events: none;
+    opacity: 0;
+    transform: rotate(-14deg) scale(2.6);
+}
+
+.legendary-stamp-line {
+    font-size: 5.6cqw;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.legendary-stamp-obs {
+    font-size: 3.6cqw;
+    font-weight: 600;
+    margin-top: 0.6cqw;
+    padding-top: 0.8cqw;
+    border-top: 0.5cqw solid currentColor;
+}
+
+/* Le tampon tombe une fois la photo développée (le développement dure 2,2 s) */
+.polaroid-print.is-developed .legendary-stamp {
+    animation: legendary-stamp-hit 0.38s cubic-bezier(0.2, 1.6, 0.4, 1) 2.3s forwards;
+}
+
+/* « Tout révéler » : tampon affiché tout de suite */
+.polaroid-print.is-developed .legendary-stamp.is-instant {
+    animation: none;
+    opacity: 0.92;
+    transform: rotate(-14deg) scale(1);
+}
+
+@keyframes legendary-stamp-hit {
+    0%   { opacity: 0; transform: rotate(-4deg) scale(2.6); }
+    70%  { opacity: 0.95; }
+    100% { opacity: 0.92; transform: rotate(-14deg) scale(1); }
+}
+
+/* La carte tremble au moment de l'impact, sans couper le halo doré existant */
+.polaroid-print.is-developed.rarity-legendaire.with-stamp {
+    animation: gacha-glow 1.5s ease-in-out infinite alternate,
+               legendary-stamp-shake 0.3s ease-out 2.6s;
+}
+
+@keyframes legendary-stamp-shake {
+    25% { transform: translate(-1.5%, 1%); }
+    50% { transform: translate(1.5%, -0.5%); }
+    75% { transform: translate(-1%, 0.5%); }
+}
+
+/* Pas d'animation si l'utilisateur a désactivé les animations sur son système */
+@media (prefers-reduced-motion: reduce) {
+    .polaroid-print.is-developed .legendary-stamp {
+        animation: none;
+        opacity: 0.92;
+        transform: rotate(-14deg) scale(1);
+    }
+}

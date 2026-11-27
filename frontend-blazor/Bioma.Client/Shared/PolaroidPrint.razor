@@ -1,22 +1,31 @@
 @using Bioma.Application.DTOs
 @using Bioma.Domain.Enums
 
-<div class="polaroid-print rarity-@RarityCss(Card.Rarity) @(Developed ? "is-developed" : "") @Class"
+<div class="polaroid-print rarity-@RarityCss(Card.Rarity) @(Developed ? "is-developed" : "") @(HasStamp ? "with-stamp" : "") @Class"
      title="@Card.CommonName (@Card.ScientificName) · @Card.RarityLabel · @Card.NaturalOccurrencesCount.ToString("N0") observations">
-    <div class="polaroid-print-window">
+        <div class="polaroid-print-window">
         <img src="@Card.ImageUrl" alt="@Card.CommonName" />
         <span class="rarity-badge @RarityCss(Card.Rarity)">
             @Card.RarityLabel
         </span>
     </div>
 
-    <div class="polaroid-print-caption">
+        <div class="polaroid-print-caption">
         <span class="polaroid-print-name">@Card.CommonName</span>
         @if (Card.IsNew)
         {
             <span class="gacha-new">NOUVEAU</span>
         }
     </div>
+
+    @if (HasStamp)
+    {
+        <div class="legendary-stamp @(StampInstant ? "is-instant" : "")" aria-label="Espèce menacée">
+            <span class="legendary-stamp-line">Espèce</span>
+            <span class="legendary-stamp-line">menacée</span>
+            <span class="legendary-stamp-obs">@Card.NaturalOccurrencesCount.ToString("N0") obs.</span>
+        </div>
+    }
 </div>
 
 @code {
@@ -45,4 +54,14 @@
         "peucommune" or "peu commune" or "peu-commune" => "peu-commune",
         _ => "commune"
     };
+
+    /// <summary>Affiche le tampon « Espèce menacée » si la carte est légendaire.</summary>
+    [Parameter]
+    public bool ShowStamp { get; set; }
+
+    /// <summary>Affiche le tampon directement, sans animation (bouton « Tout révéler »).</summary>
+    [Parameter]
+    public bool StampInstant { get; set; }
+
+    private bool HasStamp => ShowStamp && Card.Rarity == CardRarity.Legendaire;
 }

@@ -1,6 +1,7 @@
 using Bioma.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql;
 
 namespace Bioma.Infrastructure.Data;
@@ -491,5 +492,20 @@ public class BiomaDbContext : DbContext
 
             entity.HasIndex(sp => new { sp.OwnerPlayerId, sp.SlotIndex }).IsUnique();
         });
+                if (Database.ProviderName == "Microsoft.EntityFrameworkCore.Sqlite")
+        {
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            {
+                var dateProperties = entityType.ClrType.GetProperties()
+                    .Where(p => p.PropertyType == typeof(DateTimeOffset) || p.PropertyType == typeof(DateTimeOffset?));
+
+                foreach (var property in dateProperties)
+                {
+                    modelBuilder.Entity(entityType.Name)
+                        .Property(property.Name)
+                        .HasConversion(new DateTimeOffsetToBinaryConverter());
+                }
+            }
+        }
     }
 }

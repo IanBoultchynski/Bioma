@@ -20,6 +20,7 @@ builder.Services.AddTransient<IUserProfileService, UserProfileService>();
 builder.Services.AddTransient<IGachaService, GachaService>();
 builder.Services.AddTransient<IQuizService, QuizService>();
 builder.Services.AddTransient<IShowcase3DService, Showcase3DService>();
+builder.Services.AddTransient<ISocialTradeService, SocialTradeService>();
 
 builder.Services.AddHttpClient("ImageProxy", client =>
 {

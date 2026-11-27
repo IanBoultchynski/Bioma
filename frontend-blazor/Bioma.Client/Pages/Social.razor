@@ -1,0 +1,486 @@
+@page "/social"
+@implements IDisposable
+@using Bioma.Domain.Enums
+@inject ISocialTradeService SocialService
+@inject IUserProfileService UserService
+@inject UserSessionState Session
+
+@*
+    Épique 9 : Social & Échanges
+    - US-52 : ajouter des amis (demande, acceptation, refus, suppression)
+    - US-53 : proposer un échange sécurisé d'une carte contre une carte
+    - US-54 : offrir directement une carte à un ami
+*@
+
+<div class="bioma-page-header">
+    <div>
+        <h1 class="bioma-title">Amis &amp; Échanges</h1>
+        <p class="bioma-subtitle">
+            Ajoutez des amis, échangez vos cartes en toute sécurité ou offrez-leur une carte.
+        </p>
+    </div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(_feedback))
+{
+    <div style="margin-bottom: 1.25rem; padding: 0.7rem 1rem; border-radius: 8px; background: @(_feedbackSuccess ? "rgba(46, 158, 91, 0.22)" : "rgba(220, 75, 75, 0.22)"); border: 1px solid @(_feedbackSuccess ? "rgba(72, 187, 120, 0.55)" : "rgba(239, 68, 68, 0.55)"); display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem;">
+        <span>@_feedback</span>
+        <button type="button" @onclick="() => _feedback = null" style="background: none; border: none; color: var(--figma-text-soft); cursor: pointer; font-size: 0.78rem;">Fermer</button>
+    </div>
+}
+
+@if (Session.CurrentProfile is null)
+{
+    <section class="bioma-panel">
+        <p style="margin-bottom: 1rem;">Connectez-vous pour retrouver vos amis et vos échanges.</p>
+        <a href="/profil" class="btn-sand" style="width: auto;"><span>Se connecter</span></a>
+    </section>
+}
+else if (_overview is null)
+{
+    <p style="color: var(--figma-text-muted);">Chargement de vos amis…</p>
+}
+else
+{
+    var incomingRequests = _overview.PendingRequests.Where(r => r.IsIncoming).ToList();
+    var outgoingRequests = _overview.PendingRequests.Where(r => !r.IsIncoming).ToList();
+
+    <div class="social-grid">
+        <!-- COLONNE GAUCHE : AMIS (US-52) -->
+        <section class="bioma-panel">
+            <div class="figma-section-header" style="margin-bottom: 0.85rem;">
+                <h2 class="figma-section-title">Mes amis (@_overview.Friends.Count)</h2>
+            </div>
+
+            <div class="social-add-row">
+                <input type="text"
+                       class="bioma-input"
+                       placeholder="Pseudo ou e-mail de votre ami"
+                       @bind="_friendQuery"
+                       @bind:event="oninput"
+                       @onkeydown="OnAddFriendKeyDownAsync" />
+                <button type="button" class="btn-sand" style="width: auto; white-space: nowrap;" disabled="@_busy" @onclick="SendFriendRequestAsync">
+                    <span>Ajouter</span>
+                </button>
+            </div>
+
+            @if (incomingRequests.Count > 0)
+            {
+                <div class="social-subtitle">Demandes reçues</div>
+                @foreach (var request in incomingRequests)
+                {
+                    <div class="social-row">
+                        <div class="social-row-main">
+                            <img class="social-avatar" src="@request.AvatarUrl" alt="" />
+                            <div>
+                                <div class="social-name">@request.Username</div>
+                                <div class="social-meta">veut devenir votre ami</div>
+                            </div>
+                        </div>
+                        <div class="social-actions">
+                            <button type="button" class="btn-sand social-btn" disabled="@_busy"
+                                    @onclick="() => RunAsync(id => SocialService.RespondToFriendRequestAsync(id, request.FriendshipId, true))">
+                                <span>Accepter</span>
+                            </button>
+                            <button type="button" class="btn-outline social-btn" disabled="@_busy"
+                                    @onclick="() => RunAsync(id => SocialService.RespondToFriendRequestAsync(id, request.FriendshipId, false))">
+                                <span>Refuser</span>
+                            </button>
+                        </div>
+                    </div>
+                }
+            }
+
+            @if (outgoingRequests.Count > 0)
+            {
+                <div class="social-subtitle">Demandes envoyées</div>
+                @foreach (var request in outgoingRequests)
+                {
+                    <div class="social-row">
+                        <div class="social-row-main">
+                            <img class="social-avatar" src="@request.AvatarUrl" alt="" />
+                            <div>
+                                <div class="social-name">@request.Username</div>
+                                <div class="social-meta">en attente de réponse</div>
+                            </div>
+                        </div>
+                        <div class="social-actions">
+                            <button type="button" class="btn-outline social-btn" disabled="@_busy"
+                                    @onclick="() => RunAsync(id => SocialService.RemoveFriendAsync(id, request.PlayerId))">
+                                <span>Annuler</span>
+                            </button>
+                        </div>
+                    </div>
+                }
+            }
+
+            <div class="social-subtitle">Amis</div>
+            @if (_overview.Friends.Count == 0)
+            {
+                <p class="social-empty">Ajoutez un ami avec son pseudo pour commencer à échanger des cartes.</p>
+            }
+            @foreach (var friend in _overview.Friends)
+            {
+                <div class="social-row @(_composerFriend?.PlayerId == friend.PlayerId ? "active" : "")">
+                    <div class="social-row-main">
+                        <img class="social-avatar" src="@friend.AvatarUrl" alt="" />
+                        <div>
+                            <div class="social-name">@friend.Username</div>
+                            <div class="social-meta">Niveau @friend.Level · @friend.TotalCards carte(s)</div>
+                        </div>
+                    </div>
+                    <div class="social-actions">
+                        <button type="button" class="btn-sand social-btn" disabled="@_busy" @onclick="() => OpenComposerAsync(friend, false)">
+                            <span>Échanger</span>
+                        </button>
+                        <button type="button" class="btn-outline social-btn" disabled="@_busy" @onclick="() => OpenComposerAsync(friend, true)">
+                            <span>Offrir</span>
+                        </button>
+                        <button type="button" class="btn-outline social-btn" disabled="@_busy"
+                                @onclick="() => RunAsync(id => SocialService.RemoveFriendAsync(id, friend.PlayerId))">
+                            <span>Retirer</span>
+                        </button>
+                    </div>
+                </div>
+            }
+        </section>
+
+        <!-- COLONNE DROITE : ÉCHANGES ET CADEAUX (US-53, US-54) -->
+        <section class="bioma-panel">
+            @if (_composerFriend is not null)
+            {
+                <div class="social-composer">
+                    <div class="figma-section-header" style="margin-bottom: 0.75rem;">
+                        <h2 class="figma-section-title" style="font-size: 1.05rem;">
+                            @(_composerIsGift ? $"Offrir une carte à {_composerFriend.Username}" : $"Proposer un échange à {_composerFriend.Username}")
+                        </h2>
+                        <button type="button" class="btn-outline social-btn" @onclick="CloseComposer"><span>Fermer</span></button>
+                    </div>
+
+                    <div class="social-subtitle" style="margin-top: 0;">@(_composerIsGift ? "Carte à offrir" : "Votre carte")</div>
+                    @if (_myCards.Count == 0)
+                    {
+                        <p class="social-empty">Vous n'avez aucune carte disponible.</p>
+                    }
+                    else
+                    {
+                        <div class="social-card-picker">
+                            @foreach (var card in _myCards)
+                            {
+                                <button type="button"
+                                        class="social-card @(card.PlayerCardId == _selectedMine ? "selected" : "")"
+                                        @onclick="() => _selectedMine = card.PlayerCardId">
+                                    <img src="@card.ImageUrl" alt="@card.CommonName" loading="lazy" />
+                                    <span class="social-card-name" title="@card.CommonName">@card.CommonName</span>
+                                    <span class="rarity-badge @PolaroidPrint.RarityCssFromString(card.Rarity)">@card.Rarity</span>
+                                </button>
+                            }
+                        </div>
+                    }
+
+                    @if (!_composerIsGift)
+                    {
+                        <div class="social-subtitle">Carte de @_composerFriend.Username</div>
+                        @if (_friendCards.Count == 0)
+                        {
+                            <p class="social-empty">@_composerFriend.Username n'a aucune carte disponible.</p>
+                        }
+                        else
+                        {
+                            <div class="social-card-picker">
+                                @foreach (var card in _friendCards)
+                                {
+                                    <button type="button"
+                                            class="social-card @(card.PlayerCardId == _selectedTheirs ? "selected" : "")"
+                                            @onclick="() => _selectedTheirs = card.PlayerCardId">
+                                        <img src="@card.ImageUrl" alt="@card.CommonName" loading="lazy" />
+                                        <span class="social-card-name" title="@card.CommonName">@card.CommonName</span>
+                                        <span class="rarity-badge @PolaroidPrint.RarityCssFromString(card.Rarity)">@card.Rarity</span>
+                                    </button>
+                                }
+                            </div>
+                        }
+                    }
+
+                    <button type="button" class="btn-sand" style="width: auto;"
+                            disabled="@(_busy || _selectedMine is null || (!_composerIsGift && _selectedTheirs is null))"
+                            @onclick="ConfirmComposerAsync">
+                        <span>@(_composerIsGift ? "Offrir cette carte" : "Envoyer la proposition")</span>
+                    </button>
+                    @if (_composerIsGift)
+                    {
+                        <p class="social-meta" style="margin-top: 0.5rem;">Le cadeau est immédiat et définitif : la carte quitte votre inventaire.</p>
+                    }
+                </div>
+            }
+
+            <div class="figma-section-header" style="margin-bottom: 0.85rem;">
+                <h2 class="figma-section-title">Échanges</h2>
+            </div>
+
+            <div class="social-subtitle" style="margin-top: 0;">Propositions reçues</div>
+            @if (_overview.IncomingOffers.Count == 0)
+            {
+                <p class="social-empty">Aucune proposition pour le moment.</p>
+            }
+            @foreach (var offer in _overview.IncomingOffers)
+            {
+                <div class="social-row">
+                    <div class="social-offer">
+                        <span><strong>@offer.SenderUsername</strong> vous propose</span>
+                        @MiniCard(offer.OfferedCard)
+                        @if (offer.RequestedCard is not null)
+                        {
+                            <span>contre votre</span>
+                            @MiniCard(offer.RequestedCard)
+                        }
+                    </div>
+                    <div class="social-actions">
+                        <button type="button" class="btn-sand social-btn" disabled="@_busy"
+                                @onclick="() => RunAsync(id => SocialService.RespondToTradeAsync(id, offer.Id, true), refreshInventory: true)">
+                            <span>Accepter</span>
+                        </button>
+                        <button type="button" class="btn-outline social-btn" disabled="@_busy"
+                                @onclick="() => RunAsync(id => SocialService.RespondToTradeAsync(id, offer.Id, false))">
+                            <span>Refuser</span>
+                        </button>
+                    </div>
+                </div>
+            }
+
+            <div class="social-subtitle">Propositions envoyées</div>
+            @if (_overview.OutgoingOffers.Count == 0)
+            {
+                <p class="social-empty">Aucune proposition en attente.</p>
+            }
+            @foreach (var offer in _overview.OutgoingOffers)
+            {
+                <div class="social-row">
+                    <div class="social-offer">
+                        <span>Votre</span>
+                        @MiniCard(offer.OfferedCard)
+                        @if (offer.RequestedCard is not null)
+                        {
+                            <span>contre</span>
+                            @MiniCard(offer.RequestedCard)
+                        }
+                        <span>de <strong>@offer.ReceiverUsername</strong></span>
+                    </div>
+                    <div class="social-actions">
+                        <button type="button" class="btn-outline social-btn" disabled="@_busy"
+                                @onclick="() => RunAsync(id => SocialService.CancelTradeAsync(id, offer.Id))">
+                            <span>Annuler</span>
+                        </button>
+                    </div>
+                </div>
+            }
+
+            <div class="social-subtitle">Historique</div>
+            @if (_overview.History.Count == 0)
+            {
+                <p class="social-empty">Aucun échange ni cadeau pour l'instant.</p>
+            }
+            @foreach (var offer in _overview.History)
+            {
+                <div class="social-row">
+                    <div class="social-offer">
+                        @if (offer.IsGift)
+                        {
+                            <span>@(offer.IsIncoming ? $"{offer.SenderUsername} vous a offert" : $"Vous avez offert à {offer.ReceiverUsername}")</span>
+                            @MiniCard(offer.OfferedCard)
+                        }
+                        else
+                        {
+                            <span>@(offer.IsIncoming ? $"Échange avec {offer.SenderUsername} :" : $"Échange avec {offer.ReceiverUsername} :")</span>
+                            @MiniCard(offer.OfferedCard)
+                            <span>contre</span>
+                            @if (offer.RequestedCard is not null)
+                            {
+                                @MiniCard(offer.RequestedCard)
+                            }
+                        }
+                    </div>
+                    <span class="social-status @StatusCss(offer.Status)">@StatusLabel(offer)</span>
+                </div>
+            }
+        </section>
+    </div>
+}
+
+@code {
+    private SocialOverviewDto? _overview;
+    private string _friendQuery = string.Empty;
+    private string? _feedback;
+    private bool _feedbackSuccess;
+    private bool _busy;
+
+    // Panneau d'échange ou de cadeau ouvert pour un ami
+    private FriendDto? _composerFriend;
+    private bool _composerIsGift;
+    private List<TradeCardDto> _myCards = new();
+    private List<TradeCardDto> _friendCards = new();
+    private Guid? _selectedMine;
+    private Guid? _selectedTheirs;
+
+    private Guid? PlayerId => Session.CurrentProfile?.Id;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Session.OnChange += HandleSessionChanged;
+        await LoadAsync();
+    }
+
+    public void Dispose()
+    {
+        Session.OnChange -= HandleSessionChanged;
+    }
+
+    private void HandleSessionChanged()
+    {
+        // Pendant une action, la page recharge déjà ses données : on évite deux requêtes en même temps sur le DbContext
+        if (_busy) return;
+
+        _ = InvokeAsync(async () =>
+        {
+            await LoadAsync();
+            StateHasChanged();
+        });
+    }
+
+    private async Task LoadAsync()
+    {
+        if (PlayerId is not Guid id)
+        {
+            _overview = null;
+            return;
+        }
+
+        _overview = await SocialService.GetOverviewAsync(id);
+    }
+
+    /// <summary>
+    /// Lance une action sociale, affiche son message et recharge la page.
+    /// refreshInventory : met aussi à jour l'inventaire de la session quand des cartes ont changé de main.
+    /// </summary>
+    private async Task RunAsync(Func<Guid, Task<SocialActionResultDto>> action, bool refreshInventory = false)
+    {
+        if (_busy || PlayerId is not Guid id) return;
+        _busy = true;
+
+        try
+        {
+            var result = await action(id);
+            _feedback = result.Message;
+            _feedbackSuccess = result.Success;
+
+            if (result.Success && refreshInventory)
+            {
+                var profile = await UserService.GetProfileWithInventoryAsync(id);
+                if (profile is not null)
+                {
+                    Session.SetSession(profile, Session.AuthToken);
+                }
+            }
+
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _feedback = $"Une erreur est survenue : {ex.Message}";
+            _feedbackSuccess = false;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task SendFriendRequestAsync()
+    {
+        string query = _friendQuery;
+        await RunAsync(id => SocialService.SendFriendRequestAsync(id, query));
+        if (_feedbackSuccess)
+        {
+            _friendQuery = string.Empty;
+        }
+    }
+
+    private async Task OnAddFriendKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SendFriendRequestAsync();
+        }
+    }
+
+    private async Task OpenComposerAsync(FriendDto friend, bool isGift)
+    {
+        if (_busy || PlayerId is not Guid id) return;
+        _busy = true;
+
+        try
+        {
+            _composerFriend = friend;
+            _composerIsGift = isGift;
+            _selectedMine = null;
+            _selectedTheirs = null;
+            _myCards = await SocialService.GetTradeableCardsAsync(id, id);
+            _friendCards = isGift
+                ? new List<TradeCardDto>()
+                : await SocialService.GetTradeableCardsAsync(id, friend.PlayerId);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void CloseComposer()
+    {
+        _composerFriend = null;
+        _myCards = new();
+        _friendCards = new();
+    }
+
+    private async Task ConfirmComposerAsync()
+    {
+        if (_composerFriend is null || _selectedMine is not Guid mine) return;
+        Guid friendId = _composerFriend.PlayerId;
+
+        if (_composerIsGift)
+        {
+            await RunAsync(id => SocialService.SendGiftAsync(id, friendId, mine), refreshInventory: true);
+        }
+        else
+        {
+            if (_selectedTheirs is not Guid theirs) return;
+            await RunAsync(id => SocialService.ProposeTradeAsync(id, friendId, mine, theirs));
+        }
+
+        if (_feedbackSuccess)
+        {
+            CloseComposer();
+        }
+    }
+
+    private static string StatusCss(TradeStatus status) => status switch
+    {
+        TradeStatus.Accepte => "accepte",
+        TradeStatus.Refuse => "refuse",
+        _ => "annule"
+    };
+
+    private static string StatusLabel(TradeOfferDto offer) => offer.Status switch
+    {
+        TradeStatus.Accepte => offer.IsGift ? "Offert" : "Accepté",
+        TradeStatus.Refuse => "Refusé",
+        TradeStatus.Annule => "Annulé",
+        _ => "En attente"
+    };
+
+    private RenderFragment MiniCard(TradeCardDto card) =>
+        @<span class="social-mini-card" title="@card.Rarity">
+            <img src="@card.ImageUrl" alt="" />
+            <span>@card.CommonName</span>
+        </span>;
+}

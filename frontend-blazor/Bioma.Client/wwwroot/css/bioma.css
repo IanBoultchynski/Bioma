@@ -1041,3 +1041,198 @@ a {
         grid-template-columns: 1fr 1fr;
     }
 }
+/* ====================================================================
+   PAGE SOCIAL : AMIS, ÉCHANGES ET CADEAUX (US-52 à US-54)
+   ==================================================================== */
+.social-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+    gap: 1.5rem;
+    align-items: start;
+}
+
+@media (max-width: 900px) {
+    .social-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.social-add-row {
+    display: flex;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
+}
+
+.social-subtitle {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--figma-text-muted);
+    margin: 1.1rem 0 0.5rem;
+}
+
+.social-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6rem 0.7rem;
+    margin-bottom: 0.5rem;
+    border: 1px solid var(--figma-border);
+    border-radius: 8px;
+    background: rgba(12, 26, 18, 0.35);
+}
+
+.social-row.active {
+    border-color: var(--figma-gold);
+}
+
+.social-row-main {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+}
+
+.social-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--figma-surface-alt);
+}
+
+.social-name {
+    font-weight: 600;
+    color: var(--figma-text);
+}
+
+.social-meta {
+    font-size: 0.72rem;
+    color: var(--figma-text-soft);
+}
+
+.social-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
+.social-btn {
+    width: auto !important;
+    padding: 0.32rem 0.7rem !important;
+    font-size: 0.72rem !important;
+}
+
+.social-empty {
+    font-size: 0.8rem;
+    color: var(--figma-text-muted);
+}
+
+.social-offer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--figma-text-soft);
+    min-width: 0;
+}
+
+.social-mini-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 600;
+    color: var(--figma-text);
+}
+
+.social-mini-card img {
+    width: 28px;
+    height: 28px;
+    border-radius: 3px;
+    object-fit: cover;
+    background: #141414;
+}
+
+.social-status {
+    flex-shrink: 0;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 0.66rem;
+    font-weight: 700;
+}
+
+.social-status.accepte {
+    background: rgba(46, 158, 91, 0.22);
+    color: #68C587;
+}
+
+.social-status.refuse,
+.social-status.annule {
+    background: rgba(239, 68, 68, 0.18);
+    color: #F09595;
+}
+
+/* Panneau d'échange ou de cadeau */
+.social-composer {
+    padding: 1rem;
+    margin-bottom: 1.25rem;
+    border: 1px solid var(--figma-gold);
+    border-radius: 10px;
+    background: rgba(222, 184, 97, 0.06);
+}
+
+.social-card-picker {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 0.55rem;
+    max-height: 280px;
+    overflow-y: auto;
+    margin-bottom: 0.9rem;
+    padding: 2px;
+}
+
+.social-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 5px 7px;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    background: #F7F5EF;
+    color: #2B2B2B;
+    font: inherit;
+    cursor: pointer;
+}
+
+.social-card img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    background: #141414;
+}
+
+.social-card-name {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.68rem;
+    font-weight: 700;
+}
+
+.social-card .rarity-badge {
+    padding: 1px 6px;
+    font-size: 0.55rem;
+}
+
+.social-card.selected {
+    border-color: var(--figma-gold);
+    box-shadow: 0 0 0 2px var(--figma-gold);
+}

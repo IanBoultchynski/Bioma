@@ -153,9 +153,32 @@ public interface IAuctionMarketService
 /// </summary>
 public interface ISocialTradeService
 {
-    // US-52 : Gestion de la liste d'amis
-    // US-53 : Proposition et validation d'échange sécurisé de cartes
-    // US-54 : Envoi direct d'un cadeau (carte ou objet) à un ami
+    /// <summary>US-52 à US-54 : amis, demandes en attente, échanges reçus/envoyés et historique.</summary>
+    Task<SocialOverviewDto> GetOverviewAsync(Guid playerId, CancellationToken ct = default);
+
+    /// <summary>US-52 : envoyer une demande d'ami par pseudo ou e-mail.</summary>
+    Task<SocialActionResultDto> SendFriendRequestAsync(Guid playerId, string usernameOrEmail, CancellationToken ct = default);
+
+    /// <summary>US-52 : accepter ou refuser une demande d'ami reçue.</summary>
+    Task<SocialActionResultDto> RespondToFriendRequestAsync(Guid playerId, Guid friendshipId, bool accept, CancellationToken ct = default);
+
+    /// <summary>US-52 : retirer un ami ou annuler une demande envoyée.</summary>
+    Task<SocialActionResultDto> RemoveFriendAsync(Guid playerId, Guid otherPlayerId, CancellationToken ct = default);
+
+    /// <summary>US-53 & US-54 : cartes disponibles d'un joueur (soi-même ou un ami).</summary>
+    Task<List<TradeCardDto>> GetTradeableCardsAsync(Guid viewerId, Guid ownerId, CancellationToken ct = default);
+
+    /// <summary>US-53 : proposer un échange d'une carte contre une carte à un ami.</summary>
+    Task<SocialActionResultDto> ProposeTradeAsync(Guid playerId, Guid friendId, Guid offeredPlayerCardId, Guid requestedPlayerCardId, CancellationToken ct = default);
+
+    /// <summary>US-53 : accepter (avec revérification complète) ou refuser un échange reçu.</summary>
+    Task<SocialActionResultDto> RespondToTradeAsync(Guid playerId, Guid tradeOfferId, bool accept, CancellationToken ct = default);
+
+    /// <summary>US-53 : annuler une proposition d'échange envoyée.</summary>
+    Task<SocialActionResultDto> CancelTradeAsync(Guid playerId, Guid tradeOfferId, CancellationToken ct = default);
+
+    /// <summary>US-54 : offrir directement une carte à un ami.</summary>
+    Task<SocialActionResultDto> SendGiftAsync(Guid playerId, Guid friendId, Guid playerCardId, CancellationToken ct = default);
 }
 
 /// <summary>

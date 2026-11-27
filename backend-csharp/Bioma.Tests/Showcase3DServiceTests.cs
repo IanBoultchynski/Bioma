@@ -18,7 +18,7 @@ public class Showcase3DServiceTests
     }
 
     [Fact]
-    public async Task OverviewStartsEmpty_AndOnlyProposesTheSixAvailableBiomes()
+    public async Task OverviewStartsEmpty_AndOnlyProposesTheEightAvailableBiomes()
     {
         using var db = CreateInMemoryContext();
         await BiomaDbSeeder.SeedAsync(db);
@@ -28,27 +28,27 @@ public class Showcase3DServiceTests
 
         var overview = await service.GetPlayerBiomesOverviewAsync(ianId);
 
-        Assert.Empty(overview.CreatedBiomes);
-        Assert.Equal(6, overview.AvailableBiomesToCreate.Count);
+                Assert.Empty(overview.CreatedBiomes);
+        Assert.Equal(8, overview.AvailableBiomesToCreate.Count);
         Assert.All(overview.AvailableBiomesToCreate, b =>
         {
             Assert.True(b.IsAvailable);
             Assert.False(string.IsNullOrEmpty(b.PreviewImageUrl));
         });
 
-        // Les 6 biomes présents en .blend/.glb sont proposés
+        // Les 8 biomes présents en .blend/.glb sont proposés
         Assert.Contains(overview.AvailableBiomesToCreate, b => b.Biome == BiomeType.Taiga);
         Assert.Contains(overview.AvailableBiomesToCreate, b => b.Biome == BiomeType.Toundra);
         Assert.Contains(overview.AvailableBiomesToCreate, b => b.Biome == BiomeType.Desert);
         Assert.Contains(overview.AvailableBiomesToCreate, b => b.Biome == BiomeType.Montagne);
         Assert.Contains(overview.AvailableBiomesToCreate, b => b.Biome == BiomeType.ForetTemperee);
         Assert.Contains(overview.AvailableBiomesToCreate, b => b.Biome == BiomeType.Savane);
+        Assert.Contains(overview.AvailableBiomesToCreate, b => b.Biome == BiomeType.ZoneUrbaine);
+        Assert.Contains(overview.AvailableBiomesToCreate, b => b.Biome == BiomeType.ZoneHumide);
 
-        // Les 4 biomes restant à faire ne sont pas encore disponibles
+        // Les 2 biomes restant à faire ne sont pas encore disponibles
         Assert.DoesNotContain(overview.AvailableBiomesToCreate, b => b.Biome == BiomeType.ForetTropicale);
-        Assert.DoesNotContain(overview.AvailableBiomesToCreate, b => b.Biome == BiomeType.ZoneUrbaine);
         Assert.DoesNotContain(overview.AvailableBiomesToCreate, b => b.Biome == BiomeType.MilieuMarin);
-        Assert.DoesNotContain(overview.AvailableBiomesToCreate, b => b.Biome == BiomeType.ZoneHumide);
 
         // Aucun biome ne doit être forcé avant que le joueur ne le crée
         var showcaseBeforeCreate = await service.GetPlayerShowcaseAsync(ianId);

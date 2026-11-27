@@ -15,7 +15,26 @@ Application complète de collection de cartes Polaroïd d'espèces réelles (**G
 | **Backend C# (.NET API — Healthcheck)** | https://bioma-api.gentlebay-5dd53ad7.francecentral.azurecontainerapps.io/health |
 | **Backend Python (FastAPI — Swagger)** | https://bioma-python.gentlebay-5dd53ad7.francecentral.azurecontainerapps.io/docs |
 
-> **Déploiement automatique (CI/CD)** : chaque `git push` sur `main` déclenche le workflow [`.github/workflows/deploy-azure.yml`](.github/workflows/deploy-azure.yml) qui reconstruit les 3 images Docker et met à jour automatiquement les 3 services sur Azure.
+> **Déploiement automatique (CI/CD)** : chaque `git push` sur `main` déclenche le workflow [`.github/workflows/deploy-azure.yml`](.github/workflows/deploy-azure.yml) qui reconstruit et publie les 3 images Docker sur `ghcr.io/ianboultchynski/bioma-*:latest`.
+
+#### Mettre à jour Azure après un `git push`
+
+**Option 1 — En local (sans ouvrir le portail Azure, utilise `az` ou Docker automatiquement) :**
+```powershell
+.\deploy-azure.ps1
+```
+
+**Option 2 — Depuis Azure Cloud Shell (Bash) :**
+```bash
+TS="$(date +%s)"
+for app in bioma-python bioma-api bioma-blazor; do
+  az containerapp update \
+    --name $app \
+    --resource-group rg-bioma \
+    --image ghcr.io/ianboultchynski/$app:latest \
+    --set-env-vars "DEPLOY_TS=$TS"
+done
+```
 
 ---
 

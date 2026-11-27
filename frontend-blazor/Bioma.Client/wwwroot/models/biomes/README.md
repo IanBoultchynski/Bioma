@@ -8,16 +8,16 @@ Ce dossier contient les modèles 3D Blender (`.blend`), leurs exports WebGL (`.g
 
 ## Les 10 Biomes du projet
 
-### Biomes disponibles (6)
+### Biomes disponibles (8)
 1. **Forêt de Sapins** : `BiomeSapins.blend` / `BiomeSapins.glb` / `BiomeSapins.png`
 2. **Arctique** : `artique.blend` / `artique.glb` / `artique.png`
 3. **Désert** : `desert.blend` / `desert.glb` / `desert.png`
 4. **Montagne** : `Montain.blend` / `Montain.glb` / `Montain.png`
 5. **Plaine** : `plain.blend` / `plain.glb` / `plain.png`
 6. **Savane** : `savane.blend` / `savane.glb` / `savane.png`
+7. **Ville** : `ville.blend` / `ville.glb` / `ville.png`
+8. **Marais** : `marais.blend` / `marais.glb` / `marais.png`
 
-### Biomes restant à faire (4)
-7. **Jungle** : `jungle.blend`
-8. **Ville** : `ville.blend`
-9. **Océan** : `ocean.blend`
-10. **Marais** : `marais.blend`
+### Biomes restant à faire (2)
+9. **Jungle** : `jungle.blend`
+10. **Océan** : `ocean.blend`

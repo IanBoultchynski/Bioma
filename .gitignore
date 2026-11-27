@@ -52,3 +52,7 @@ env/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+## Blender Auto-Backups
+*.blend1
+*.blend2

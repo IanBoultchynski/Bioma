@@ -7,6 +7,18 @@ Application complète de collection de cartes Polaroïd d'espèces réelles (**G
 
 ---
 
+### Déploiement en ligne (Azure Container Apps)
+
+| Service | Lien |
+|---|---|
+| **Frontend Blazor** | https://bioma-blazor.gentlebay-5dd53ad7.francecentral.azurecontainerapps.io |
+| **Backend C# (.NET API — Healthcheck)** | https://bioma-api.gentlebay-5dd53ad7.francecentral.azurecontainerapps.io/health |
+| **Backend Python (FastAPI — Swagger)** | https://bioma-python.gentlebay-5dd53ad7.francecentral.azurecontainerapps.io/docs |
+
+> **Déploiement automatique (CI/CD)** : chaque `git push` sur `main` déclenche le workflow [`.github/workflows/deploy-azure.yml`](.github/workflows/deploy-azure.yml) qui reconstruit les 3 images Docker et met à jour automatiquement les 3 services sur Azure.
+
+---
+
 
 ### Lancer l'interface Blazor (avec données  pré-chargées)
 ```powershell
